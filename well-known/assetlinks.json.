@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "io.github.aeliorus.twa",
-        "sha256_cert_fingerprints": ["5F:5E:1A:2B:9E:D4:E2:3A:EC:AA:91:FD:E7:29:3F:31:B6:81:D1:65:46:93:F5:AF:5C:F1:4C:B6:1E:A8:86:D4"]
-      }
-    }]
