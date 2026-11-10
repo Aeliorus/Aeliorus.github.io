@@ -1,5 +1,5 @@
 // Little Tracker offline cache. Bump CACHE when the shell files change shape.
-const CACHE = 'little-tracker-v3';
+const CACHE = 'little-tracker-v5';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 

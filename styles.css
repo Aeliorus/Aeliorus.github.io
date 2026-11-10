@@ -176,6 +176,7 @@ input[type=datetime-local] { color-scheme: dark; }
 .bar .discard { border: none; background: none; color: #c97f7f; font-size: 14px; font-weight: 600; padding: 8px 4px; }
 .timer-body { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 6px 0 16px; }
 .status { font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c); opacity: .85; }
+.clock.cd { color: #ff7b7b; }
 .clock { font-family: var(--display); font-weight: 700; color: var(--ink); letter-spacing: -2px; font-variant-numeric: tabular-nums; line-height: 1; }
 /* stop and pause side by side once the timer runs */
 .ctas.row { flex-direction: row; align-items: stretch; gap: 10px; }

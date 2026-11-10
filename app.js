@@ -298,7 +298,20 @@
   };
   const beginTimer = (type) => {
     const n = Date.now(), t = state.timers[type];
-    setTimerOf(type, { ...t, startedAt: n, running: true, accMs: 0, lastStart: n, pausedAt: null, ...(type === 'sleep' && !t.mode ? { mode: defaultSleepMode() } : {}) });
+    setTimerOf(type, { ...t, countdownEnd: null, startedAt: n, running: true, accMs: 0, lastStart: n, pausedAt: null, ...(type === 'sleep' && !t.mode ? { mode: defaultSleepMode() } : {}) });
+  };
+  // ----- 15-minute countdown before a sleep timer -----
+  // Only the end time is stored. A web page cannot run while the phone is locked or the app is in the
+  // background, so when the app wakes up (or ticks) it checks whether the end time has passed and, if so,
+  // starts the sleep timer with that end time as its start: the recorded time is exact either way.
+  const COUNTDOWN_MIN = 15;
+  const countdownLeft = (t = state.timers.sleep) => (t && !t.startedAt && t.countdownEnd ? Math.max(0, t.countdownEnd - Date.now()) : null);
+  const checkCountdown = () => {
+    const t = state.timers.sleep;
+    if (!t || t.startedAt || !t.countdownEnd || Date.now() < t.countdownEnd) return;
+    const s = t.countdownEnd;
+    setTimerOf('sleep', { ...t, countdownEnd: null, startedAt: s, running: true, accMs: 0, lastStart: s, pausedAt: null, mode: t.mode || defaultSleepMode() });
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
   };
   // Stop a running timer and save its entry; the timer slot is emptied.
   const finishTimer = (type) => {
@@ -501,7 +514,7 @@
       const type = state.switchPrompt, other = otherType(type);
       state.switchPrompt = null;
       const entry = buildEntryFromTimer(state.timers[other]);
-      commitEntry(entry, { timers: { ...state.timers, [other]: null, [type]: { ...state.timers[type], startedAt: Date.now(), running: true, accMs: 0, lastStart: Date.now(), pausedAt: null } } });
+      commitEntry(entry, { timers: { ...state.timers, [other]: null, [type]: { ...state.timers[type], countdownEnd: null, startedAt: Date.now(), running: true, accMs: 0, lastStart: Date.now(), pausedAt: null } } });
       copy(lineFor(entry), savedMsg(other));
     },
     goHome: () => set({ view: 'home' }),
@@ -513,6 +526,8 @@
       state.panel = null;
       beginTimer(t.type);
     },
+    startCountdown: () => patchTimer({ countdownEnd: Date.now() + COUNTDOWN_MIN * 60000 }),
+    cancelCountdown: () => patchTimer({ countdownEnd: null }),
     togglePause: () => {
       const a = { ...curT() };
       if (a.running) { const t = Date.now(); a.accMs += t - a.lastStart; a.running = false; a.pausedAt = t; }
@@ -616,6 +631,7 @@
       </div></div>`;
   };
 
+  const cdSub = (a) => `⏳ ${fr() ? 'Départ dans' : 'Starts in'} ${clockLabel(countdownLeft(a) || 0)}`;
   const cardHtml = (type) => {
     const l = L(), th = THEME[type], rows = rowsFor(type), open = !!state.expanded[type] && rows.length > 0;
     const a = state.timers[type];
@@ -626,7 +642,8 @@
       poop: { title: l.pooping, empty: l.noPoop, copy: l.copyPoop, act: 'logPoop', arrow: '+', sub: l.tapPoop },
       obs: { title: l.obs, empty: l.noObs, copy: l.copyObs, act: 'logObs', arrow: '+', sub: l.obsSub }
     }[type];
-    const sub = cfg.sub || (started ? runningSub(a) : l.tapStart);
+    const cd = type === 'sleep' ? countdownLeft(a) : null;
+    const sub = cfg.sub || (started ? runningSub(a) : cd != null ? cdSub(a) : l.tapStart);
     const more = rows.length - 1;
     const foot = open ? l.less : more > 0 ? (fr() ? `+${more} entrée${more > 1 ? 's' : ''}` : `+${more} more`) : l.actions;
     const footAria = open ? l.less : (more === 0 ? l.showActions : fr() ? (more === 1 ? 'Voir l’autre entrée' : `Voir les ${more} autres`) : `Show ${more} more`);
@@ -779,7 +796,8 @@
     if (!a) return '';
     const l = L(), isEat = a.type === 'eat', isSleep = a.type === 'sleep', th = THEME[a.type];
     const started = !!a.startedAt, running = !!a.running;
-    const status = !started ? l.ready : running ? l.recording : l.paused;
+    const cdLeft = isSleep ? countdownLeft(a) : null;
+    const status = cdLeft != null ? (fr() ? '⏳ Le dodo démarre dans' : '⏳ Sleep starts in') : !started ? l.ready : running ? l.recording : l.paused;
     // shortcut to the other timer when both are running
     const other = otherType(a.type), ot = state.timers[other];
     const otherChip = isStarted(other)
@@ -831,9 +849,13 @@
       mid += panel('volume', 'volume', title, body);
       mid += `<button class="obs-quick dimmable" ${attr('logObs')}>📝 ${l.obsQuick}</button>`;
     }
-    const ctas = !started
+    const ctas = cdLeft != null
+      ? `<button class="cta" ${attr('startTimer')}>${fr() ? 'Lancer maintenant' : 'Start now'}</button><button class="cta-ghost" ${attr('cancelCountdown')}>${fr() ? 'Annuler' : 'Cancel'}</button>`
+      : isSleep && !started
+      ? `<button class="cta" ${attr('startTimer')}>${l.start}</button><button class="cta-ghost" aria-label="${fr() ? 'Compte à rebours de 15 minutes' : '15 minute countdown'}" ${attr('startCountdown')}>⏳ ${COUNTDOWN_MIN} min</button>`
+      : !started
       ? `<button class="cta" ${attr('startTimer')}>${l.start}</button>`
-      : `<button class="cta" ${attr('stopTimer')}>${l.stop}</button><button class="cta-ghost" ${attr('togglePause')}>${running ? l.pause : l.resume}</button>`;
+      :`<button class="cta" ${attr('stopTimer')}>${l.stop}</button><button class="cta-ghost" ${attr('togglePause')}>${running ? l.pause : l.resume}</button>`;
     return `<div class="full"><div class="full-in" style="${themeVars(th)}">
       <div class="bar dimmable">
         <button class="back" ${attr('goHome')}>‹ ${l.menu}</button>
@@ -843,11 +865,11 @@
       ${otherChip}
       <div class="timer-body">
         <div class="status dimmable" style="font-size:${isEat ? 12 : 14}px">${status}</div>
-        <div class="clock" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(elapsedMs())}</div>
+        <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
         ${started ? `<div class="from-time dimmable">${fr() ? 'Début' : 'Started'} ${esc(clockTime(a.startedAt))}</div>` : ''}
         ${mid}
       </div>
-      <div class="ctas dimmable${started ? ' row' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
+      <div class="ctas dimmable${started || isSleep ? ' row' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
     </div></div>`;
   };
 
@@ -1162,7 +1184,7 @@
   async function syncWakeLock() {
     if (!('wakeLock' in navigator) || wakeBusy) return;
     const running = (t) => !!(t && t.running);
-    const want = (running(state.timers.eat) || running(state.timers.sleep)) && document.visibilityState === 'visible';
+    const want = (running(state.timers.eat) || running(state.timers.sleep) || countdownLeft() != null) && document.visibilityState === 'visible';
     wakeBusy = true;
     try {
       if (want && !wakeLock) {
@@ -1175,11 +1197,19 @@
     } catch (e) { wakeLock = null; }
     wakeBusy = false;
   }
-  document.addEventListener('visibilitychange', syncWakeLock);
+  document.addEventListener('visibilitychange', () => { checkCountdown(); syncWakeLock(); });
+  window.addEventListener('pageshow', checkCountdown);
+  window.addEventListener('focus', checkCountdown);
 
   // live-updating bits without a full re-render (keeps inputs and pickers intact)
   setInterval(() => {
     const live = (k, v) => root.querySelectorAll(`[data-live="${k}"]`).forEach(el => { if (el.textContent !== v) el.textContent = v; });
+    checkCountdown();
+    const cdl = countdownLeft();
+    if (cdl != null) {
+      live('sleep', cdSub(state.timers.sleep));
+      if (state.view === 'sleep') live('clock', clockLabel(cdl));
+    }
     ['sleep', 'eat'].forEach(type => {
       const a = state.timers[type];
       if (!a || !a.running) return;
@@ -1232,6 +1262,7 @@
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
+  checkCountdown();
   render();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
