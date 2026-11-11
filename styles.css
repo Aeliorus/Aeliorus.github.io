@@ -381,3 +381,52 @@ body.dimmed .dimmable { opacity: .12; }
 .bar button { min-height: 44px; padding-top: 8px; padding-bottom: 8px; font-size: 16px; }
 .obs-quick { padding: 13px; font-size: 16px; }
 .other-chip { padding: 12px 14px; }
+
+/* feed screen: same roomy layout while every panel is folded (more free height) */
+.timer-body.eat:not(:has(.tpanel.open)) { justify-content: space-evenly; padding-bottom: 8px; }
+.timer-body.eat:not(:has(.tpanel.open)) .t-mid { gap: 14px; }
+.timer-body.eat:not(:has(.tpanel.open)) .from-time { font-size: 20px; }
+.timer-body.eat:not(:has(.tpanel.open)) .since { font-size: 15.5px; }
+.timer-body.eat:not(:has(.tpanel.open)) .tp-head { min-height: 62px; font-size: 15px; }
+.timer-body.eat:not(:has(.tpanel.open)) .tpanel.open .tp-head { min-height: 68px; font-size: 18px; }
+.timer-body.eat:not(:has(.tpanel.open)) .tpanel { border-radius: 22px; }
+.timer-body.eat:not(:has(.tpanel.open)) .tpanel .tg-btns button { padding: 17px 0; font-size: 17px; border-radius: 14px; }
+.timer-body.eat:not(:has(.tpanel.open)) .mode-opts button { padding: 18px 4px; font-size: 15px; }
+.timer-body.eat:not(:has(.tpanel.open)) .mode-opts button span { font-size: 26px; }
+.timer-body.eat:not(:has(.tpanel.open)) .tp-chev { font-size: 14px; }
+/* feed screen, panels folded: stacked buttons at the bottom like the sleep screen */
+.full-in:not(:has(.tpanel.open)) .ctas.row.eatc { flex-direction: column; gap: 10px; }
+.full-in:not(:has(.tpanel.open)) .ctas.row.eatc .cta { flex: none; width: 100%; padding: 20px; font-size: 19px; }
+.full-in:not(:has(.tpanel.open)) .ctas.row.eatc .cta-ghost { flex: none; width: 100%; padding: 16px; font-size: 17px; }
+.timer-body.eat:not(:has(.tpanel.open)) .obs-quick { padding: 18px; font-size: 17px; border-radius: 20px; }
+/* feed screen, a panel open: keep it compact but give the folded heads a comfortable height */
+.timer-body.eat .tp-head { min-height: 48px; }
+.timer-body.eat .tpanel.open .tp-head { min-height: 52px; }
+.timer-body.eat .tpanel .tg-btns button { padding: 14px 0; font-size: 16px; }
+
+/* ---- home screen: bigger text and cards that fill the screen ---- */
+.col { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; padding-bottom: 28px; }
+.col > .grid { flex: 1 1 auto; margin-bottom: 18px; }
+.col > .bottom { flex-shrink: 0; gap: 16px; }
+.title { font-size: 28px; }
+.today { font-size: 16px; }
+.counts { font-size: 15px; gap: 10px; margin-top: 12px; flex-wrap: nowrap; white-space: nowrap; }
+.counts span { white-space: nowrap; }
+.icon-btn { width: 46px; height: 46px; border-radius: 15px; }
+.icon-btn.stats-btn { height: 46px; padding: 0 12px 14px; gap: 4px; }
+.icon-btn svg { width: 28px; height: 28px; }
+.head-tools { gap: 7px; }
+.card-main { flex: 1 0 auto; padding: 14px 15px; gap: 8px; min-height: 150px; }
+.card-dot { width: 42px; height: 42px; font-size: 23px; }
+.card-arrow { font-size: 24px; }
+.card-title { font-size: 21px; margin-top: auto; }
+.card-sub { font-size: 14px; opacity: .78; }
+.empty { font-size: 14px; padding: 14px 15px; }
+.row-line { font-size: 14px; }
+.card-foot { min-height: 48px; font-size: 14px; }
+.card-actions button { font-size: 14px; padding: 12px 10px; }
+.btn-ghost, .btn-danger-soft { padding: 18px 12px; font-size: 16px; }
+
+/* feed screen with a panel open: win back a little height so less scrolling is needed */
+.full-in:has(.tpanel.open) .timer-body.eat .clock { font-size: 46px !important; }
+.full-in:has(.tpanel.open) .ctas { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px); }

@@ -856,7 +856,7 @@
         <button class="discard" ${attr('cancelTimer')}>${l.discard}</button>
       </div>
       ${otherChip}
-      <div class="timer-body${isSleep ? ' roomy' : ''}">
+      <div class="timer-body${isSleep ? ' roomy' : ' eat'}">
         <div class="t-top">
         <div class="status dimmable" style="font-size:${isEat ? 12 : 14}px">${status}</div>
         <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
@@ -865,7 +865,7 @@
         </div>
         <div class="t-mid">${mid}</div>
       </div>
-      <div class="ctas dimmable${isSleep ? ' stack' : started ? ' row' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
+      <div class="ctas dimmable${isSleep ? ' stack' : started ? ' row eatc' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
     </div></div>`;
   };
 
@@ -1159,13 +1159,15 @@
 
   // Dim everything except the running clock after a minute without touch while a feed timer runs.
   // (A web page cannot lower the phone's real brightness, so the elements are darkened instead.)
-  const IDLE_MS = 60000;
+  // Also dims during the sleep countdown, but sooner (20 s) since nothing needs to be touched.
+  const IDLE_MS = 60000, IDLE_CD_MS = 20000;
   let idleTimer = null;
-  const dimWanted = () => state.view === 'eat' && !!(state.timers.eat && state.timers.eat.running);
+  const inCountdown = () => state.view === 'sleep' && countdownLeft() != null;
+  const dimWanted = () => (state.view === 'eat' && !!(state.timers.eat && state.timers.eat.running)) || inCountdown();
   function wakeUi() {
     document.body.classList.remove('dimmed');
     clearTimeout(idleTimer);
-    idleTimer = dimWanted() ? setTimeout(() => { if (dimWanted()) document.body.classList.add('dimmed'); }, IDLE_MS) : null;
+    idleTimer = dimWanted() ? setTimeout(() => { if (dimWanted()) document.body.classList.add('dimmed'); }, inCountdown() ? IDLE_CD_MS : IDLE_MS) : null;
   }
   function syncIdle() {
     if (!dimWanted()) { document.body.classList.remove('dimmed'); clearTimeout(idleTimer); idleTimer = null; }
