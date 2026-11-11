@@ -152,6 +152,9 @@
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
     if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings'].includes(state.view)) state.view = 'home';
     if (typeof state.durLink !== 'boolean') state.durLink = true;
+    // breastfeed volumes used to be guessed from the duration; they were too inaccurate, so drop them
+    const dropGuess = (e) => { if (e && e.estimated) { const c = { ...e }; delete c.milk; delete c.estimated; return c; } return e; };
+    state.logs = state.logs.map(dropGuess); state.archive = state.archive.map(dropGuess);
   }
 
   const save = () => {
@@ -190,7 +193,6 @@
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
   const toMl = (v, u) => { const n = parseFloat(v); return isNaN(n) ? 0 : (u === 'oz' ? n * 29.5735 : n); };
-  const estimateBreastMl = (sec) => { const min = sec / 60; return min < 10 ? 40 : min < 30 ? 60 : 80; };
   const obsLabel = (key) => { const k = OBS_KINDS.find(x => x.key === key); return k ? (fr() ? k.fr : k.en) : ''; };
   const obsEmoji = (key) => { const k = OBS_KINDS.find(x => x.key === key); return k ? k.emoji : '📝'; };
   const anomalyLabelFor = (e) => {
@@ -261,7 +263,7 @@
       endTimestamp: (!a.running && a.pausedAt) ? a.pausedAt : Date.now()
     };
     if (a.type === 'eat') {
-      if (a.breast) { Object.assign(entry, { breast: true, side: a.side || 'right', milk: estimateBreastMl(entry.duration), unit: 'ml', estimated: true }); }
+      if (a.breast) { Object.assign(entry, { breast: true, side: a.side || 'right' }); }
       else { entry.milk = (a.milk || '').toString().trim(); entry.unit = state.unit; }
     }
     if (a.type === 'sleep' && a.mode) entry.mode = a.mode;
@@ -433,7 +435,7 @@
       if (l.type === 'obs') next.obs = d.obs || l.obs;
       if (l.type === 'sleep') { if (d.mode) next.mode = d.mode; else delete next.mode; }
       if (l.type === 'eat') {
-        if (d.breast) Object.assign(next, { breast: true, side: d.side || 'right', milk: estimateBreastMl(next.duration), unit: 'ml', estimated: true });
+        if (d.breast) { Object.assign(next, { breast: true, side: d.side || 'right' }); delete next.milk; delete next.estimated; }
         else { next.milk = (d.milk || '').toString().trim(); next.unit = d.unit; }
       }
       return next;
@@ -578,7 +580,6 @@
       const dur = Math.max(0, Math.round((e - s) / 1000));
       Object.assign(d, { durH: String(Math.floor(dur / 3600)), durM: String(Math.floor((dur % 3600) / 60)), durS: String(dur % 60) });
       ['durH', 'durM', 'durS'].forEach(k => { const el = root.querySelector(`[data-i="edit_${k}"]`); if (el) el.value = d[k]; });
-      updEst(root);
     },
     editMilk: (v) => patchDraft({ milk: v })
   };
@@ -590,13 +591,8 @@
         d.endDt = toLocalInput(start + draftSecs(d) * 1000);
         const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
       }
-      updEst(root);
     };
   });
-  function updEst(root) {
-    const el = root.querySelector('#editEst');
-    if (el) el.textContent = `≈ ${estimateBreastMl(draftSecs(state.editDraft))} ml`;
-  }
 
   // ---------- views ----------
   const attr = (a, v) => `data-a="${a}"${v !== undefined ? ` data-v="${esc(v)}"` : ''}`;
@@ -785,8 +781,7 @@
       <div class="milk-row"><input type="number" inputmode="decimal" data-i="editMilk" value="${esc(d.milk)}" placeholder="0">
       <button class="pick unit${d.unit === 'ml' ? ' on-unit' : ''}" ${attr('editUnit', 'ml')}>ml</button><button class="pick unit${d.unit === 'oz' ? ' on-unit' : ''}" ${attr('editUnit', 'oz')}>oz</button></div>`;
     if (d.type === 'eat' && d.breast) body += `<div class="fl">${l.whichSide}</div>
-      <div class="pick-row"><button class="pick side${d.side === 'left' ? ' on-eat' : ''}" ${attr('editSide', 'left')}>◀ ${l.left}</button><button class="pick side${d.side !== 'left' ? ' on-eat' : ''}" ${attr('editSide', 'right')}>${l.right} ▶</button></div>
-      <div class="est" id="editEst">≈ ${estimateBreastMl(draftSecs(d))} ml</div>`;
+      <div class="pick-row"><button class="pick side${d.side === 'left' ? ' on-eat' : ''}" ${attr('editSide', 'left')}>◀ ${l.left}</button><button class="pick side${d.side !== 'left' ? ' on-eat' : ''}" ${attr('editSide', 'right')}>${l.right} ▶</button></div>`;
     body += `<div class="modal-btns"><button class="btn-line" ${attr('cancelEdit')}>${l.cancel}</button><button class="btn-solid" ${attr('saveEdit')}>${l.save}</button></div>`;
     return modal(body, 'm370');
   };
@@ -816,9 +811,9 @@
         <button class="tp-head" aria-expanded="${open}" ${locked ? 'tabindex="-1"' : attr('panel', key)}><span class="tp-lbl">${label}</span><i class="tp-chev">▾</i></button>
         <div class="tp-body"><div class="tp-in">${body}</div></div></div>`;
     };
-    let mid = '';
+    let mid = '', sinceHtml = '';
     if (started) {
-      mid += `<div class="since dimmable" data-live="since">${esc(sinceStartLabel(a))}</div>`;
+      sinceHtml = `<div class="since dimmable" data-live="since">${esc(sinceStartLabel(a))}</div>`;
       mid += panel('timer', 'timer', `⏱ ${l.chronoAdjust}`, `<div class="tg-btns">${bumps('bumpTimer', [-5, -1, 1, 5])}</div><div class="tg-unit">min</div>`);
       mid += panel('start', 'start', `🕐 ${l.startAdjust}`, `<div class="tg-btns">${bumps('bumpStart', [-5, -1, 1, 5])}</div><div class="tg-unit">min</div>`);
     }
@@ -833,9 +828,7 @@
       const breast = !!a.breast;
       let body = `<div class="modes"><button class="${breast ? '' : 'on'}" ${attr('modeBottle')}>🍼 ${l.bottle}</button><button class="${breast ? 'on' : ''}" ${attr('modeBreast')}>🤱 ${l.breastfeeding}</button></div>`;
       if (breast) body += `<div class="breast-q">${l.whichSide}</div>
-        <div class="sides"><button class="pick side${a.side === 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'left')}>◀ ${l.left}</button><button class="pick side${a.side !== 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'right')}>${l.right} ▶</button></div>
-        <div class="breast-est" data-live="breastEst">≈ ${estimateBreastMl(Math.round(elapsedMs() / 1000))} ml</div>
-        <div class="note-s">${l.breastInfo}</div>`;
+        <div class="sides"><button class="pick side${a.side === 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'left')}>◀ ${l.left}</button><button class="pick side${a.side !== 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'right')}>${l.right} ▶</button></div>`;
       else body += `<div class="milk-main"><input type="number" inputmode="decimal" id="milk" data-i="milk" value="${esc(a.milk || '')}" placeholder="0"><span class="unit-tag">${unit}</span></div>
         <div class="vol-lb">${l.snack}</div>
         <div class="presets snack">${(oz ? [0.5, 1, 1.5, 2] : [20, 40, 60, 80]).map(presetBtn).join('')}</div>
@@ -844,7 +837,7 @@
         <div class="mbumps">${bumps('bumpMilk', oz ? [-1, -0.5, 0.5, 1] : [-10, -5, 5, 10])}</div>`;
       // the panel title is the volume itself (value + unit), not the word "Volume"
       const title = breast
-        ? `🤱 <span data-live="breastEst">≈ ${estimateBreastMl(Math.round(elapsedMs() / 1000))} ml</span>`
+        ? `🤱 <span>${a.side === 'left' ? l.left : l.right}</span>`
         : `🍼 <span class="vol-val">${esc(a.milk || '0')} ${unit}</span>`;
       mid += panel('volume', 'volume', title, body);
       mid += `<button class="obs-quick dimmable" ${attr('logObs')}>📝 ${l.obsQuick}</button>`;
@@ -852,7 +845,7 @@
     const ctas = cdLeft != null
       ? `<button class="cta" ${attr('startTimer')}>${fr() ? 'Lancer maintenant' : 'Start now'}</button><button class="cta-ghost" ${attr('cancelCountdown')}>${fr() ? 'Annuler' : 'Cancel'}</button>`
       : isSleep && !started
-      ? `<button class="cta" ${attr('startTimer')}>${l.start}</button><button class="cta-ghost" aria-label="${fr() ? 'Compte à rebours de 15 minutes' : '15 minute countdown'}" ${attr('startCountdown')}>⏳ ${COUNTDOWN_MIN} min</button>`
+      ? `<button class="cta" ${attr('startTimer')}>${l.start}</button><button class="cta-ghost" aria-label="${fr() ? 'Compte à rebours de 15 minutes' : '15 minute countdown'}" ${attr('startCountdown')}>⏳ ${fr() ? 'Compte à rebours' : 'Countdown'} · ${COUNTDOWN_MIN} min</button>`
       : !started
       ? `<button class="cta" ${attr('startTimer')}>${l.start}</button>`
       :`<button class="cta" ${attr('stopTimer')}>${l.stop}</button><button class="cta-ghost" ${attr('togglePause')}>${running ? l.pause : l.resume}</button>`;
@@ -863,13 +856,16 @@
         <button class="discard" ${attr('cancelTimer')}>${l.discard}</button>
       </div>
       ${otherChip}
-      <div class="timer-body">
+      <div class="timer-body${isSleep ? ' roomy' : ''}">
+        <div class="t-top">
         <div class="status dimmable" style="font-size:${isEat ? 12 : 14}px">${status}</div>
         <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
         ${started ? `<div class="from-time dimmable">${fr() ? 'Début' : 'Started'} ${esc(clockTime(a.startedAt))}</div>` : ''}
-        ${mid}
+        ${sinceHtml}
+        </div>
+        <div class="t-mid">${mid}</div>
       </div>
-      <div class="ctas dimmable${started || isSleep ? ' row' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
+      <div class="ctas dimmable${isSleep ? ' stack' : started ? ' row' : ''}" style="--shadow:${th.shadow}">${ctas}</div>
     </div></div>`;
   };
 
@@ -1001,18 +997,18 @@
 
   const eatScatterHtml = () => {
     const f = fr(), from = windowStart3w();
-    const items = state.archive.filter(e => e.type === 'eat' && (e.trueStartedAt || e.timestamp) >= from);
+    const items = state.archive.filter(e => e.type === 'eat' && !e.breast && (e.trueStartedAt || e.timestamp) >= from); // breastfeeds have no volume
     if (!items.length) return '';
     const colors = { bottle: '#ffb14e', breast: '#ffd9a0' };
     const maxMl = Math.max(...items.map(e => toMl(e.milk, e.unit)));
     const yMax = Math.max(100, Math.ceil(maxMl / 50) * 50);
     const pts = items.map(e => {
       const ts = e.trueStartedAt || e.timestamp, d = new Date(ts), ml = toMl(e.milk, e.unit);
-      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: colors[e.breast ? 'breast' : 'bottle'], op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml${e.breast ? ' (~)' : ''}` };
+      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: colors[e.breast ? 'breast' : 'bottle'], op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml` };
     });
     return scatterHtml(f ? 'Volume selon l’heure de début' : 'Volume by start time',
       f ? 'Chaque point est un repas : plus il est haut, plus bébé a bu. Les points qui s’empilent montrent les horaires habituels.' : 'Each dot is a feed: the higher, the more baby drank. Stacked dots show usual times.',
-      [{ label: f ? 'Biberon' : 'Bottle', bg: colors.bottle }, { label: L().breastfeeding + ' (~)', bg: colors.breast }],
+      [{ label: f ? 'Biberon' : 'Bottle', bg: colors.bottle }, ],
       pts, yMax, (v) => `${Math.round(v)} ml`);
   };
 
@@ -1217,7 +1213,6 @@
       if (state.view === type) {
         const el = elapsedMs(a);
         live('clock', clockLabel(el));
-        live('breastEst', `≈ ${estimateBreastMl(Math.round(el / 1000))} ml`);
         live('since', sinceStartLabel(a));
       } else if (state.view === otherType(type)) {
         live('chip', clockLabel(elapsedMs(a)));

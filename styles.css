@@ -360,3 +360,24 @@ body.dimmed .dimmable { opacity: .12; }
 .all-row .dt { flex: 1; font-size: 13px; color: var(--mute-3); font-weight: 500; }
 .all-row .dd { font-size: 13.5px; color: var(--mute); font-weight: 600; }
 .all-row button { border: none; background: none; color: var(--mute-3); font-size: 19px; line-height: 1; padding: 4px; }
+
+/* ---- timer screen layout: groups spread over the free height, bigger touch targets ---- */
+.t-top { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.t-mid { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+.timer-body.roomy { justify-content: space-evenly; padding-bottom: 8px; }
+.timer-body.roomy .t-mid { gap: 14px; }
+.timer-body.roomy .from-time { font-size: 20px; }
+.timer-body.roomy .since { font-size: 15.5px; }
+.timer-body.roomy .tp-head { min-height: 62px; font-size: 15px; }
+.timer-body.roomy .tpanel.open .tp-head { min-height: 68px; font-size: 18px; }
+.timer-body.roomy .tpanel { border-radius: 22px; }
+.timer-body.roomy .tpanel .tg-btns button { padding: 17px 0; font-size: 17px; border-radius: 14px; }
+.timer-body.roomy .mode-opts button { padding: 18px 4px; font-size: 15px; }
+.timer-body.roomy .mode-opts button span { font-size: 26px; }
+.timer-body.roomy .tp-chev { font-size: 14px; }
+.ctas.stack { gap: 10px; }
+.ctas.stack .cta { padding: 20px; font-size: 19px; }
+.ctas.stack .cta-ghost { padding: 16px; font-size: 17px; }
+.bar button { min-height: 44px; padding-top: 8px; padding-bottom: 8px; font-size: 16px; }
+.obs-quick { padding: 13px; font-size: 16px; }
+.other-chip { padding: 12px 14px; }
