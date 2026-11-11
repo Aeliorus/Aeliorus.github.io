@@ -2,7 +2,8 @@
   'use strict';
 
   // ---------- constants ----------
-  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink'];
+  // state keys saved to localStorage (prefixed "ict_")
+  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes'];
   const THEME = {
     sleep: { c: '#8b93ff', ink: '#16122a', tx: '#aab1ff', shadow: '#4f55b8', dim: 'rgba(139,147,255,.4)', emoji: '🌙' },
     eat: { c: '#ffb14e', ink: '#2e1c08', tx: '#ffc06a', shadow: '#b87a2b', dim: 'rgba(255,177,78,.42)', emoji: '🍼' },
@@ -16,14 +17,23 @@
     { key: 'sein', emoji: '🤱', fr: 'Au sein', en: 'At the breast' }
   ];
   const OBS_KINDS = [
-    { key: 'spitup', emoji: '💧', fr: 'Régurgitation', en: 'Spit-up', group: 'feed' },
-    { key: 'feedcry', emoji: '😭', fr: 'Pleurs pendant le repas', en: 'Crying during feed', group: 'feed' },
-    { key: 'arch', emoji: '😣', fr: 'Grimaces ou dos cambré', en: 'Grimacing or arched back', group: 'feed' },
-    { key: 'hiccup', emoji: '🫧', fr: 'Hoquet', en: 'Hiccups', group: 'other' },
-    { key: 'cough', emoji: '😷', fr: 'Toux', en: 'Cough', group: 'other' },
-    { key: 'wakecry', emoji: '😢', fr: 'Réveil en pleurs', en: 'Woke up crying', group: 'other' }
+    { key: 'spitup', emoji: '💧', fr: 'Régurgitation', en: 'Spit-up' },
+    { key: 'feedcry', emoji: '😭', fr: 'Pleurs pendant le repas', en: 'Crying during feed' },
+    { key: 'arch', emoji: '😣', fr: 'Grimaces ou dos cambré', en: 'Grimacing or arched back' },
+    { key: 'hiccup', emoji: '🫧', fr: 'Hoquet', en: 'Hiccups' },
+    { key: 'cough', emoji: '😷', fr: 'Toux', en: 'Cough' },
+    { key: 'wakecry', emoji: '😢', fr: 'Réveil en pleurs', en: 'Woke up crying' }
   ];
+  const CONSISTENCIES = [
+    { key: 'liquid', emoji: '💧', fr: 'Liquide', en: 'Liquid' },
+    { key: 'puree', emoji: '🥣', fr: 'Purée', en: 'Mushy' },
+    { key: 'solid', emoji: '🟤', fr: 'Solide', en: 'Solid' }
+  ];
+  const POOP_SIZES = ['small', 'medium', 'large', 'xl'];
   const DAY = 86400000;
+  const ML_PER_OZ = 29.5735;
+  const RESUME_WINDOW_MS = 20 * 60000;   // a stopped timer can be resumed for 20 minutes
+  const MAX_COUNTDOWN_MIN = 180;
 
   const STR = {
     fr: {
@@ -38,16 +48,15 @@
       menu: 'Menu', discard: 'Abandonner', start: 'Lancer le chrono', stop: 'Arrêter et enregistrer',
       pause: 'Pause', resume: 'Reprendre', ready: 'Prêt', recording: 'En cours', paused: 'En pause',
       feeding: 'Repas', sleepingNow: 'Dodo', breastfeeding: 'Allaitement', bottle: 'Biberon', left: 'Gauche', right: 'Droit', endTime: 'Heure de fin',
-      changeAtStop: 'Modifiable à l’arrêt du chrono.', breastInfo: 'Estimation : 3 ml par minute',
       whichSide: 'Quel sein ?', chronoAdjust: 'Timer', startAdjust: 'Heure de départ', obsQuick: 'Noter une remarque',
       sleepType: 'Type de dodo', sleepNone: 'Choisir…',
-      settings: 'Paramètres', archive: 'Archives', language: 'Langue', volumeUnit: 'Unité de volume', volumeLabel: 'Volume',
+      settings: 'Paramètres', archive: 'Archives', language: 'Langue', volumeUnit: 'Unité de volume',
       durLink: 'La durée modifie l’heure de fin',
       durLinkHelp: 'Activé : changer la durée d’une entrée déplace son heure de fin. Désactivé : seule la durée change, et un avertissement s’affiche à l’enregistrement si les heures ne correspondent plus.',
       mismatchTitle: 'Les heures ne correspondent plus',
       mismatchBody: (exp, rec) => `Début + durée donnent une fin à ${exp}, mais l’heure de fin enregistrée est ${rec}.`,
       mismatchContinue: 'Continuer la modification', mismatchSave: 'Enregistrer tel quel',
-      snack: 'En-cas', fullBottle: 'Biberon', volume: 'Volume', adjustEnd: 'Ajuster selon ce que bébé a bu',
+      snack: 'En-cas', fullBottle: 'Biberon',
       startedSince: { sleep: 'Dodo commencé depuis', bottle: 'Biberon commencé depuis', breast: 'Allaitement commencé depuis' }, ago: '',
       trends: 'Tendances', back: 'Retour', mSleep: 'Dodo', mEat: 'Repas', mPoop: 'Cacas',
       no7: 'Aucune donnée sur les 7 derniers jours.', tapDay: 'Appuyez sur un jour pour voir le détail sur 24 h',
@@ -66,9 +75,35 @@
       allDeleted: 'Toutes les données supprimées', cleared: 'Effacé',
       obs: 'Remarques', obsSub: 'Appuyez pour noter une remarque',
       obsWhat: 'Que se passe-t-il ?', obsHint: 'Un appui enregistre à l’heure actuelle', obsKind: 'Remarque',
-      obsLogged: 'Remarque notée · copiée ✓', obsGroupFeed: 'Autour du repas', obsGroupOther: 'À tout moment',
+      obsLogged: 'Remarque notée · copiée ✓',
       poopLogged: 'Caca enregistré · copié 💩',
       allEntries: 'Toutes les entrées', actions: 'Actions', less: 'Réduire', showActions: 'Afficher les actions',
+      confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
+      startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
+      cdAria: (n) => `Compte à rebours de ${n} minutes`,
+      startedAt: 'Début', fromTime: 'dès', savedSuffix: ' enregistré · copié ✓',
+      consTitle: 'Consistance des cacas',
+      consHelp: 'Activé : choisir Liquide, Purée ou Solide en plus de la taille. Désactivé : seule la taille est demandée (les consistances déjà saisies sont conservées).',
+      cdTitle: 'Compte à rebours avant le dodo',
+      cdHelp: 'Activé : un bouton « Compte à rebours » permet de lancer le chrono dodo après le délai choisi. Désactivé : le bouton disparaît.',
+      cdLength: 'Durée du décompte', minutes: 'Minutes',
+      switchTitle: (ct) => `Un chrono ${ct} est déjà en cours`,
+      switchBody: (nt) => `Voulez-vous l’arrêter et l’enregistrer pour lancer le ${nt}, ou garder les deux chronos en même temps ?`,
+      switchStop: (ct, nt) => `Arrêter le ${ct} et lancer le ${nt}`, keepBoth: 'Garder les deux en même temps',
+      copiedN: (n) => `${n} entrée${n > 1 ? 's' : ''} copiée${n > 1 ? 's' : ''}`, copiedAll: (n) => `Les ${n} entrées ont été copiées`,
+      more: (n) => `+${n} entrée${n > 1 ? 's' : ''}`, showMore: (n) => (n === 1 ? 'Voir l’autre entrée' : `Voir les ${n} autres`),
+      all: 'Tout', newestFirst: '↓ Récentes d’abord', oldestFirst: '↑ Anciennes d’abord',
+      noEntryType: 'Aucune entrée de ce type.', noEntry: 'Aucune entrée pour le moment.',
+      times: 'x', sideWord: { left: 'sein gauche', right: 'sein droit' },
+      avgSleep: (v) => `moy ${v} h par jour`, avgPoop: (v) => `moy ${v} par jour`,
+      sumEat: (feeds, ml) => `${feeds} repas · moy ${ml} ml par jour`,
+      last3w: '3 dernières semaines', daysWithData: (d) => `${d} jour${d > 1 ? 's' : ''} avec données`, peakAt: (h) => `pic vers ${h}h`,
+      eatDistTitle: 'Répartition des repas sur la journée', poopDistTitle: 'Répartition moyenne sur la journée', noData: 'Aucune donnée',
+      sleepFreqTitle: 'Fréquence par heure de début', sleepFreqSub: (n) => `${n} dodos sur 3 semaines`, sleepsStarted: 'Dodos commencés',
+      durTitle: 'Durée selon l’heure de début', durDesc: 'Chaque point est un dodo : plus il est haut, plus il a duré. Les points qui s’empilent montrent les horaires habituels.',
+      last7: '7 derniers jours', earlier: 'Avant',
+      volTitle: 'Volume selon l’heure de début', volDesc: 'Chaque point est un repas : plus il est haut, plus bébé a bu. Les points qui s’empilent montrent les horaires habituels.',
+      daySleep: (h, n) => `${h} h de sommeil · ${n} dodo${n === 1 ? '' : 's'}`, dayEat: (ml, n) => `${ml} ml · ${n} repas`, dayPoop: (n) => `${n} caca${n === 1 ? '' : 's'}`,
       ax: ['0h', '6h', '12h', '18h', '24h']
     },
     en: {
@@ -83,16 +118,15 @@
       menu: 'Menu', discard: 'Discard', start: 'Start timer', stop: 'Stop & save',
       pause: 'Pause', resume: 'Resume', ready: 'Ready', recording: 'Recording', paused: 'Paused',
       feeding: 'Feeding', sleepingNow: 'Sleeping', breastfeeding: 'Breastfeeding', bottle: 'Bottle', left: 'Left', right: 'Right', endTime: 'End time',
-      changeAtStop: 'You can change this when you stop.', breastInfo: 'Estimate: 3 ml per minute',
       whichSide: 'Which side?', chronoAdjust: 'Timer', startAdjust: 'Start time', obsQuick: 'Log a remark',
       sleepType: 'Sleep type', sleepNone: 'Choose…',
-      settings: 'Settings', archive: 'Archive', language: 'Language', volumeUnit: 'Volume unit', volumeLabel: 'Volume',
+      settings: 'Settings', archive: 'Archive', language: 'Language', volumeUnit: 'Volume unit',
       durLink: 'Duration changes the end time',
       durLinkHelp: 'On: changing an entry’s duration moves its end time. Off: only the duration changes, and a warning appears when saving if the times no longer match.',
       mismatchTitle: 'The times no longer match',
       mismatchBody: (exp, rec) => `Start + duration gives an end at ${exp}, but the saved end time is ${rec}.`,
       mismatchContinue: 'Keep editing', mismatchSave: 'Save as is',
-      snack: 'Snack', fullBottle: 'Bottle', volume: 'Volume', adjustEnd: 'Adjust to what baby actually drank',
+      snack: 'Snack', fullBottle: 'Bottle',
       startedSince: { sleep: 'Sleep started', bottle: 'Bottle started', breast: 'Breastfeed started' }, ago: ' ago',
       trends: 'Trends', back: 'Back', mSleep: 'Sleep', mEat: 'Feeds', mPoop: 'Poops',
       no7: 'No data in the last 7 days yet.', tapDay: 'Tap a day to see its 24-hour view',
@@ -111,9 +145,35 @@
       allDeleted: 'All data deleted', cleared: 'Cleared',
       obs: 'Notes', obsSub: 'Tap to log a remark',
       obsWhat: 'What’s happening?', obsHint: 'One tap logs it at the current time', obsKind: 'Remark',
-      obsLogged: 'Note logged · copied ✓', obsGroupFeed: 'Around feeding', obsGroupOther: 'Any time',
+      obsLogged: 'Note logged · copied ✓',
       poopLogged: 'Poop logged · copied 💩',
       allEntries: 'All entries', actions: 'Actions', less: 'Show less', showActions: 'Show actions',
+      confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
+      startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
+      cdAria: (n) => `${n} minute countdown`,
+      startedAt: 'Started', fromTime: 'from', savedSuffix: ' saved · copied ✓',
+      consTitle: 'Poop consistency',
+      consHelp: 'On: pick Liquid, Mushy or Solid along with the size. Off: only the size is asked (consistencies already logged are kept).',
+      cdTitle: 'Sleep countdown',
+      cdHelp: 'On: a “Countdown” button starts the sleep timer after the chosen delay. Off: the button is hidden.',
+      cdLength: 'Countdown length', minutes: 'Minutes',
+      switchTitle: (ct) => `A ${ct} timer is already running`,
+      switchBody: (nt) => `Do you want to stop and save it to start the ${nt}, or keep both timers running at the same time?`,
+      switchStop: (ct, nt) => `Stop ${ct} and start ${nt}`, keepBoth: 'Keep both running',
+      copiedN: (n) => `Copied ${n} entr${n > 1 ? 'ies' : 'y'}`, copiedAll: (n) => `Copied all ${n} entries`,
+      more: (n) => `+${n} more`, showMore: (n) => `Show ${n} more`,
+      all: 'All', newestFirst: '↓ Newest first', oldestFirst: '↑ Oldest first',
+      noEntryType: 'No entries of this type.', noEntry: 'No entries yet.',
+      times: '×', sideWord: { left: 'left breast', right: 'right breast' },
+      avgSleep: (v) => `avg ${v}h per day`, avgPoop: (v) => `avg ${v} per day`,
+      sumEat: (feeds, ml) => `${feeds} feeds · avg ${ml} ml per day`,
+      last3w: 'Last 3 weeks', daysWithData: (d) => `${d} day${d > 1 ? 's' : ''} with data`, peakAt: (h) => `peak around ${h}:00`,
+      eatDistTitle: 'Feed distribution over the day', poopDistTitle: 'Average distribution over the day', noData: 'No data yet',
+      sleepFreqTitle: 'Frequency by start hour', sleepFreqSub: (n) => `${n} sleeps over 3 weeks`, sleepsStarted: 'Sleeps started',
+      durTitle: 'Duration by start time', durDesc: 'Each dot is a sleep: the higher, the longer. Stacked dots show usual times.',
+      last7: 'Last 7 days', earlier: 'Earlier',
+      volTitle: 'Volume by start time', volDesc: 'Each dot is a feed: the higher, the more baby drank. Stacked dots show usual times.',
+      daySleep: (h, n) => `${h}h asleep · ${n} nap${n === 1 ? '' : 's'}`, dayEat: (ml, n) => `${ml} ml · ${n} feed${n === 1 ? '' : 's'}`, dayPoop: (n) => `${n} poop${n === 1 ? '' : 's'}`,
       ax: ['12am', '6am', '12pm', '6pm', '12am']
     }
   };
@@ -124,6 +184,8 @@
   };
   const loadJson = (k, fallback) => { try { return JSON.parse(load(k, 'null')) ?? fallback; } catch (e) { return fallback; } };
 
+  const emptyPoopSel = () => ({ size: '', consistency: '' });
+
   const state = {
     logs: loadJson('logs', []),
     archive: loadJson('archive', []),
@@ -133,13 +195,18 @@
     unit: load('unit', 'ml'),
     lang: load('lang', 'en'),
     durLink: loadJson('durLink', true),
+    // optional features, on by default
+    useCons: loadJson('useCons', true),
+    useCountdown: loadJson('useCountdown', true),
+    cdMinutes: loadJson('cdMinutes', 15),
     panel: null, mismatchPrompt: false,
     anomalyOn: false, anomalyKind: null, anomalyNote: '',
     toast: '', deleteTarget: null, editDraft: null,
     metric: 'sleep', selectedDay: null, archiveFilter: 'all', archiveSort: 'desc',
-    poopPicker: false, obsPicker: false, switchPrompt: null, expanded: {}
+    poopPicker: false, poopSel: emptyPoopSel(), obsPicker: false, switchPrompt: null, expanded: {}
   };
-  {
+  // Upgrade data saved by older builds and make sure every saved value is valid.
+  (function migrate() {
     const seen = new Set();
     state.archive = state.archive.filter(e => e && e.id && !seen.has(e.id) && seen.add(e.id));
     // older builds kept a single "active" timer and a separate "true" start time
@@ -151,19 +218,20 @@
     });
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
     if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings'].includes(state.view)) state.view = 'home';
-    if (typeof state.durLink !== 'boolean') state.durLink = true;
+    ['durLink', 'useCons', 'useCountdown'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
+    if (!(state.cdMinutes >= 1 && state.cdMinutes <= MAX_COUNTDOWN_MIN)) state.cdMinutes = 15;
     // breastfeed volumes used to be guessed from the duration; they were too inaccurate, so drop them
     const dropGuess = (e) => { if (e && e.estimated) { const c = { ...e }; delete c.milk; delete c.estimated; return c; } return e; };
     state.logs = state.logs.map(dropGuess); state.archive = state.archive.map(dropGuess);
-  }
+  })();
 
   const save = () => {
     try {
       KEYS.forEach(k => localStorage.setItem('ict_' + k, typeof state[k] === 'string' ? state[k] : JSON.stringify(state[k])));
     } catch (e) {}
   };
-  const set = (patch) => { Object.assign(state, patch); save(); render(); };
-  const upd = (patch) => { Object.assign(state, patch); render(); };
+  const set = (patch) => { Object.assign(state, patch); save(); render(); };   // change + persist + redraw
+  const upd = (patch) => { Object.assign(state, patch); render(); };           // change + redraw (screen-only state)
 
   // ---------- helpers ----------
   const L = () => STR[state.lang];
@@ -172,7 +240,6 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const pad = (n) => String(n).padStart(2, '0');
   const sortDesc = (arr) => [...arr].sort((a, b) => b.timestamp - a.timestamp);
-  const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
   const clockLabel = (ms) => {
     const t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
@@ -192,7 +259,10 @@
     const d = new Date(ts);
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   };
-  const toMl = (v, u) => { const n = parseFloat(v); return isNaN(n) ? 0 : (u === 'oz' ? n * 29.5735 : n); };
+  const toMl = (v, u) => { const n = parseFloat(v); return isNaN(n) ? 0 : (u === 'oz' ? n * ML_PER_OZ : n); };
+  // hours / minutes / seconds strings of a duration (the edit form keeps them as text)
+  const durParts = (secs) => ({ durH: String(Math.floor(secs / 3600)), durM: String(Math.floor((secs % 3600) / 60)), durS: String(secs % 60) });
+  const hasDuration = (type) => type !== 'poop' && type !== 'obs';
   const obsLabel = (key) => { const k = OBS_KINDS.find(x => x.key === key); return k ? (fr() ? k.fr : k.en) : ''; };
   const obsEmoji = (key) => { const k = OBS_KINDS.find(x => x.key === key); return k ? k.emoji : '📝'; };
   const anomalyLabelFor = (e) => {
@@ -200,25 +270,28 @@
     if (e.anomaly === 'other') return (e.anomalyNote || '').trim() || L().anomOther;
     return e.anomaly === 'color' ? L().anomColor : L().anomBlood;
   };
-  const typeLabel = (type) => (type === 'eat' ? (fr() ? 'Repas' : 'Feed') : (fr() ? 'Dodo' : 'Sleep'));
+  const typeLabel = (type) => L().typeName[type];
   const idPrefix = (type) => (type === 'eat' ? 'e' : 's');
   const upsertArchive = (entry) => sortDesc([entry, ...state.archive.filter(l => l.id !== entry.id)]);
+  const consLabel = (key) => { const c = CONSISTENCIES.find(x => x.key === key); return c ? (fr() ? c.fr : c.en) : ''; };
+  // "Gros · Purée" for the size and consistency of a poop entry
+  const poopDesc = (e) => [e.size ? (L()[e.size] || e.size) : '', consLabel(e.consistency)].filter(Boolean).join(' · ');
   const entryEnd = (e) => e.endTimestamp || (e.timestamp + (e.duration || 0) * 1000);
 
   const lineFor = (e) => {
-    const l = L(), f = fr();
+    const l = L();
     const date = dateOf(e.timestamp), time = timeOf(e.timestamp);
     const durMin = Math.round((e.duration || 0) / 60);
     const end = timeOf(entryEnd(e));
     if (e.type === 'poop') {
-      const size = e.size ? ` · ${l[e.size] || e.size}` : '';
+      const size = poopDesc(e) ? ` · ${poopDesc(e)}` : '';
       const anom = e.anomaly ? ` • ${l.anomLabel} : ${anomalyLabelFor(e)}` : '';
       return `${l.wPoop} · ${date} · ${time}${size}${anom}`;
     }
     if (e.type === 'obs') return `${l.wObs} · ${date} · ${time} · ${obsLabel(e.obs)}`;
     if (e.type === 'sleep') return `${l.wSleep} · ${date} · ${time} · ${end} · ${durMin}min${e.mode ? ` · ${sleepModeLabel(e.mode)}` : ''}`;
     if (e.breast) {
-      const side = e.side ? (f ? (e.side === 'left' ? 'sein gauche' : 'sein droit') : (e.side === 'left' ? 'left breast' : 'right breast')) : '';
+      const side = e.side ? l.sideWord[e.side === 'left' ? 'left' : 'right'] : '';
       const tail = [e.milk ? `~${e.milk}ml` : '', side].filter(Boolean).map(s => ` · ${s}`).join('');
       return `${l.breastfeeding} · ${date} · ${time} - ${end} · ${durMin}min${tail}`;
     }
@@ -246,7 +319,7 @@
   };
   const clockTime = (ts) => timeOf(ts, { hour: '2-digit', minute: '2-digit' });
   // "● Recording · 05:12 · from 11:32 PM" for the home cards
-  const runningSub = (a) => (a.running ? '● ' + L().recording : '❚❚ ' + L().paused) + ' · ' + clockLabel(elapsedMs(a)) + ' · ' + (fr() ? 'dès ' : 'from ') + clockTime(a.startedAt);
+  const runningSub = (a) => `${a.running ? '● ' + L().recording : '❚❚ ' + L().paused} · ${clockLabel(elapsedMs(a))} · ${L().fromTime} ${clockTime(a.startedAt)}`;
   // from 19:30 until 06:00 a sleep starts as "Couché" (can still be changed)
   const defaultSleepMode = () => {
     const d = new Date(), m = d.getHours() * 60 + d.getMinutes();
@@ -298,21 +371,21 @@
     state.panel = null;
     set({ timers: { ...state.timers, [type]: state.timers[type] || freshTimer(type) }, view: type });
   };
+  // the same timer, started at time `at` (no countdown pending, measured time back to 0)
+  const startedTimer = (t, at) => ({ ...t, countdownEnd: null, startedAt: at, running: true, accMs: 0, lastStart: at, pausedAt: null });
   const beginTimer = (type) => {
-    const n = Date.now(), t = state.timers[type];
-    setTimerOf(type, { ...t, countdownEnd: null, startedAt: n, running: true, accMs: 0, lastStart: n, pausedAt: null, ...(type === 'sleep' && !t.mode ? { mode: defaultSleepMode() } : {}) });
+    const t = state.timers[type];
+    setTimerOf(type, { ...startedTimer(t, Date.now()), ...(type === 'sleep' && !t.mode ? { mode: defaultSleepMode() } : {}) });
   };
-  // ----- 15-minute countdown before a sleep timer -----
+  // ----- countdown before a sleep timer (length set in Settings) -----
   // Only the end time is stored. A web page cannot run while the phone is locked or the app is in the
   // background, so when the app wakes up (or ticks) it checks whether the end time has passed and, if so,
   // starts the sleep timer with that end time as its start: the recorded time is exact either way.
-  const COUNTDOWN_MIN = 15;
   const countdownLeft = (t = state.timers.sleep) => (t && !t.startedAt && t.countdownEnd ? Math.max(0, t.countdownEnd - Date.now()) : null);
   const checkCountdown = () => {
     const t = state.timers.sleep;
     if (!t || t.startedAt || !t.countdownEnd || Date.now() < t.countdownEnd) return;
-    const s = t.countdownEnd;
-    setTimerOf('sleep', { ...t, countdownEnd: null, startedAt: s, running: true, accMs: 0, lastStart: s, pausedAt: null, mode: t.mode || defaultSleepMode() });
+    setTimerOf('sleep', { ...startedTimer(t, t.countdownEnd), mode: t.mode || defaultSleepMode() });
     try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
   };
   // Stop a running timer and save its entry; the timer slot is emptied.
@@ -324,16 +397,18 @@
   const commitEntry = (entry, extra) => {
     set({ logs: [entry, ...state.logs.filter(l => l.id !== entry.id)], archive: upsertArchive(entry), ...extra });
   };
-  const savedMsg = (type) => typeLabel(type) + (fr() ? ' enregistré · copié ✓' : ' saved · copied ✓');
+  const savedMsg = (type) => typeLabel(type) + L().savedSuffix;
   const defaultSide = () => (curT() && curT().side) || 'right';
 
-  const logPoopSize = (size) => {
-    const entry = { id: 'p' + Date.now(), type: 'poop', timestamp: Date.now(), size };
+  const savePoop = () => {
+    const sel = state.poopSel || {};
+    const entry = { id: 'p' + Date.now(), type: 'poop', timestamp: Date.now(), size: sel.size || '' };
+    if (state.useCons && sel.consistency) entry.consistency = sel.consistency;
     if (state.anomalyOn && state.anomalyKind) {
       entry.anomaly = state.anomalyKind;
       if (state.anomalyKind === 'other') entry.anomalyNote = (state.anomalyNote || '').trim();
     }
-    state.poopPicker = false; state.anomalyOn = false; state.anomalyKind = null; state.anomalyNote = '';
+    state.poopPicker = false; state.poopSel = emptyPoopSel(); state.anomalyOn = false; state.anomalyKind = null; state.anomalyNote = '';
     set({ logs: [entry, ...state.logs], archive: upsertArchive(entry) });
     copy(lineFor(entry), L().poopLogged);
   };
@@ -367,7 +442,7 @@
   const canResume = (e) => {
     if (e.type === 'poop' || e.type === 'obs') return false;
     if (isStarted(e.type)) return false;
-    return Date.now() - (e.timestamp + (e.duration || 0) * 1000) < 20 * 60 * 1000;
+    return Date.now() - (e.timestamp + (e.duration || 0) * 1000) < RESUME_WINDOW_MS;
   };
   const resumeEntry = (id) => {
     const e = state.logs.find(l => l.id === id);
@@ -383,13 +458,13 @@
     const items = sortDesc(state.logs.filter(l => l.type === type));
     if (!items.length) return showToast(L().nothingCopy);
     const n = items.length;
-    copy(items.reverse().map(lineFor).join('\n\n'), fr() ? `${n} entrée${n > 1 ? 's' : ''} copiée${n > 1 ? 's' : ''}` : `Copied ${n} entr${n > 1 ? 'ies' : 'y'}`);
+    copy(items.reverse().map(lineFor).join('\n\n'), L().copiedN(n));
   };
   const copyAll = () => {
     if (!state.logs.length) return showToast(L().nothingCopy);
     const order = { sleep: 0, eat: 1, poop: 2, obs: 3 };
     const g = [...state.logs].sort((a, b) => order[a.type] - order[b.type] || a.timestamp - b.timestamp);
-    copy(g.map(lineFor).join('\n\n'), fr() ? `Les ${g.length} entrées ont été copiées` : `Copied all ${g.length} entries`);
+    copy(g.map(lineFor).join('\n\n'), L().copiedAll(g.length));
   };
 
   // edit draft
@@ -400,14 +475,14 @@
     upd({ editDraft: {
       id, type: e.type, dt: toLocalInput(e.timestamp), endDt: toLocalInput(entryEnd(e)), milk: e.milk || '', unit: e.unit || 'ml',
       origMis: entryEnd(e) - (e.timestamp + dur * 1000), mode: e.mode || '',
-      size: e.size || '', obs: e.obs || '', breast: !!e.breast, side: e.side || 'right',
-      durH: String(Math.floor(dur / 3600)), durM: String(Math.floor((dur % 3600) / 60)), durS: String(dur % 60)
+      size: e.size || '', consistency: e.consistency || '', obs: e.obs || '', breast: !!e.breast, side: e.side || 'right',
+      ...durParts(dur)
     } });
   };
   const draftSecs = (d) => (parseFloat(d.durH) || 0) * 3600 + (parseFloat(d.durM) || 0) * 60 + (parseFloat(d.durS) || 0);
   // gap between the saved end time and start + duration (ms); null when it does not apply
   const draftMismatch = (d) => {
-    if (d.type === 'poop' || d.type === 'obs') return null;
+    if (!hasDuration(d.type)) return null;
     const s = new Date(d.dt).getTime(), e = new Date(d.endDt).getTime();
     if (isNaN(s) || isNaN(e)) return null;
     return e - (s + Math.round(draftSecs(d)) * 1000);
@@ -426,12 +501,12 @@
     const apply = (l) => {
       if (l.id !== d.id) return l;
       const next = { ...l, timestamp: ts };
-      if (l.type !== 'poop' && l.type !== 'obs') {
+      if (hasDuration(l.type)) {
         next.duration = Math.max(0, Math.round(draftSecs(d)));
         const endTs = new Date(d.endDt).getTime();
         next.endTimestamp = !isNaN(endTs) ? endTs : ts + next.duration * 1000;
       }
-      if (l.type === 'poop') next.size = d.size || '';
+      if (l.type === 'poop') { next.size = d.size || ''; if (d.consistency) next.consistency = d.consistency; else delete next.consistency; }
       if (l.type === 'obs') next.obs = d.obs || l.obs;
       if (l.type === 'sleep') { if (d.mode) next.mode = d.mode; else delete next.mode; }
       if (l.type === 'eat') {
@@ -459,6 +534,9 @@
     openArchive: () => set({ view: 'archive' }),
     closePage: () => set({ view: 'home' }),
     toggleDurLink: () => set({ durLink: !state.durLink }),
+    toggleCons: () => set({ useCons: !state.useCons }),
+    cdBump: (v) => set({ cdMinutes: Math.min(MAX_COUNTDOWN_MIN, Math.max(1, state.cdMinutes + (+v))) }),
+    toggleCountdown: () => set({ useCountdown: !state.useCountdown }),
     // collapsible timer panels: toggled in place (no re-render) so the CSS transition can animate
     panel: (v) => {
       state.panel = state.panel === v ? null : v;
@@ -470,12 +548,15 @@
     },
     openSleep: () => openTimer('sleep'),
     openEat: () => openTimer('eat'),
-    logPoop: () => upd({ poopPicker: true, anomalyOn: false, anomalyKind: null, anomalyNote: '' }),
+    logPoop: () => upd({ poopPicker: true, poopSel: emptyPoopSel(), anomalyOn: false, anomalyKind: null, anomalyNote: '' }),
     logObs: () => upd({ obsPicker: true }),
     cancelObs: () => upd({ obsPicker: false }),
     obsKind: logObsKind,
-    cancelPoop: () => upd({ poopPicker: false, anomalyOn: false, anomalyKind: null, anomalyNote: '' }),
-    poopSize: logPoopSize,
+    cancelPoop: () => upd({ poopPicker: false, poopSel: emptyPoopSel(), anomalyOn: false, anomalyKind: null, anomalyNote: '' }),
+    // size and consistency are only picked here; "Confirm" saves the entry
+    poopSize: (v) => upd({ poopSel: { ...state.poopSel, size: state.poopSel.size === v ? '' : v } }),
+    poopCons: (v) => upd({ poopSel: { ...state.poopSel, consistency: state.poopSel.consistency === v ? '' : v } }),
+    confirmPoop: savePoop,
     toggleAnomaly: () => upd({ anomalyOn: !state.anomalyOn, anomalyKind: null, anomalyNote: '' }),
     anomalyKind: (v) => upd({ anomalyKind: v }),
     toggleExpand: (t) => upd({ expanded: { ...state.expanded, [t]: !state.expanded[t] } }),
@@ -489,16 +570,14 @@
     saveEdit,
     mismatchContinue: () => upd({ mismatchPrompt: false }),
     mismatchSave: () => commitEdit(),
+    editCons: (v) => { patchDraft({ consistency: state.editDraft.consistency === v ? '' : v }); render(); },
     editSize: (v) => { patchDraft({ size: v }); render(); },
     editSide: (v) => { patchDraft({ side: v }); render(); },
     // shift the duration by v minutes (never below 0); the end time follows when the setting is on
     editDur: (v) => {
       const d = state.editDraft, secs = Math.max(0, Math.round(draftSecs(d) + v * 60));
       const start = new Date(d.dt).getTime();
-      patchDraft({
-        durH: String(Math.floor(secs / 3600)), durM: String(Math.floor((secs % 3600) / 60)), durS: String(secs % 60),
-        ...(isNaN(start) || !state.durLink ? {} : { endDt: toLocalInput(start + secs * 1000) })
-      });
+      patchDraft({ ...durParts(secs), ...(isNaN(start) || !state.durLink ? {} : { endDt: toLocalInput(start + secs * 1000) }) });
       render();
     },
     editUnit: (v) => { patchDraft({ unit: v }); render(); },
@@ -516,7 +595,7 @@
       const type = state.switchPrompt, other = otherType(type);
       state.switchPrompt = null;
       const entry = buildEntryFromTimer(state.timers[other]);
-      commitEntry(entry, { timers: { ...state.timers, [other]: null, [type]: { ...state.timers[type], countdownEnd: null, startedAt: Date.now(), running: true, accMs: 0, lastStart: Date.now(), pausedAt: null } } });
+      commitEntry(entry, { timers: { ...state.timers, [other]: null, [type]: startedTimer(state.timers[type], Date.now()) } });
       copy(lineFor(entry), savedMsg(other));
     },
     goHome: () => set({ view: 'home' }),
@@ -528,7 +607,7 @@
       state.panel = null;
       beginTimer(t.type);
     },
-    startCountdown: () => patchTimer({ countdownEnd: Date.now() + COUNTDOWN_MIN * 60000 }),
+    startCountdown: () => patchTimer({ countdownEnd: Date.now() + state.cdMinutes * 60000 }),
     cancelCountdown: () => patchTimer({ countdownEnd: null }),
     togglePause: () => {
       const a = { ...curT() };
@@ -548,7 +627,7 @@
       if (v === state.unit) return;
       const t = state.timers.eat, n = t ? parseFloat(t.milk) : NaN;
       const timers = (!isNaN(n) && n > 0)
-        ? { ...state.timers, eat: { ...t, milk: String(v === 'oz' ? Math.round(n / 29.5735 * 2) / 2 : Math.round(n * 29.5735)) } }
+        ? { ...state.timers, eat: { ...t, milk: String(v === 'oz' ? Math.round(n / ML_PER_OZ * 2) / 2 : Math.round(n * ML_PER_OZ)) } }
         : state.timers;
       set({ unit: v, timers });
     },
@@ -562,36 +641,31 @@
     removeArchive: (id) => set({ archive: state.archive.filter(l => l.id !== id) })
   };
 
+  // when the setting is on, the end time follows start + duration while the user types
+  const followEnd = (root) => {
+    const d = state.editDraft, start = new Date(d.dt).getTime();
+    if (isNaN(start) || !hasDuration(d.type) || !state.durLink) return;
+    d.endDt = toLocalInput(start + draftSecs(d) * 1000);
+    const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
+  };
   const INPUTS = {
+    // typed in Settings: saved without re-rendering so the keyboard stays open
+    cdMin: (v) => { const n = parseInt(v, 10); if (n >= 1 && n <= MAX_COUNTDOWN_MIN) { state.cdMinutes = n; save(); } },
     milk: (v) => patchTimer({ milk: v }),
     anomalyNote: (v) => { state.anomalyNote = v; },
-    editDt: (v, root) => {
-      patchDraft({ dt: v });
-      const d = state.editDraft, start = new Date(v).getTime();
-      if (!isNaN(start) && d.type !== 'poop' && d.type !== 'obs' && state.durLink) {
-        d.endDt = toLocalInput(start + draftSecs(d) * 1000);
-        const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
-      }
-    },
+    editDt: (v, root) => { patchDraft({ dt: v }); followEnd(root); },
     editEndDt: (v, root) => {
       patchDraft({ endDt: v });
       const d = state.editDraft, s = new Date(d.dt).getTime(), e = new Date(v).getTime();
       if (isNaN(s) || isNaN(e)) return;
       const dur = Math.max(0, Math.round((e - s) / 1000));
-      Object.assign(d, { durH: String(Math.floor(dur / 3600)), durM: String(Math.floor((dur % 3600) / 60)), durS: String(dur % 60) });
+      Object.assign(d, durParts(dur));
       ['durH', 'durM', 'durS'].forEach(k => { const el = root.querySelector(`[data-i="edit_${k}"]`); if (el) el.value = d[k]; });
     },
     editMilk: (v) => patchDraft({ milk: v })
   };
   ['durH', 'durM', 'durS'].forEach(k => {
-    INPUTS['edit_' + k] = (v, root) => {
-      patchDraft({ [k]: v });
-      const d = state.editDraft, start = new Date(d.dt).getTime();
-      if (!isNaN(start) && state.durLink) {
-        d.endDt = toLocalInput(start + draftSecs(d) * 1000);
-        const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
-      }
-    };
+    INPUTS['edit_' + k] = (v, root) => { patchDraft({ [k]: v }); followEnd(root); };
   });
 
   // ---------- views ----------
@@ -611,7 +685,7 @@
       main = e.breast ? `🤱 ${e.milk ? '~' + e.milk + 'ml' : (e.side === 'left' ? l.left : l.right)}` : (e.milk ? `${e.milk} ${e.unit || 'ml'}` : durLabel(e.duration));
       line = `${timeOf(e.timestamp)} → ${end} · ${durLabel(e.duration)}`; big = true;
     } else if (type === 'poop') {
-      main = timeOf(e.timestamp); line = e.size ? (l[e.size] || e.size) : '';
+      main = timeOf(e.timestamp); line = poopDesc(e);
       if (e.anomaly) anom = `<span class="pill-anom">⚠ ${esc(anomalyLabelFor(e))}</span>`;
     } else { main = timeOf(e.timestamp); line = `${obsEmoji(e.obs)} ${obsLabel(e.obs)}`; }
     const resume = canResume(e) ? `<button class="resume-btn" ${attr('resume', e.id)}>${l.resume}</button>` : '';
@@ -627,7 +701,7 @@
       </div></div>`;
   };
 
-  const cdSub = (a) => `⏳ ${fr() ? 'Départ dans' : 'Starts in'} ${clockLabel(countdownLeft(a) || 0)}`;
+  const cdSub = (a) => `⏳ ${L().cdSub} ${clockLabel(countdownLeft(a) || 0)}`;
   const cardHtml = (type) => {
     const l = L(), th = THEME[type], rows = rowsFor(type), open = !!state.expanded[type] && rows.length > 0;
     const a = state.timers[type];
@@ -641,8 +715,8 @@
     const cd = type === 'sleep' ? countdownLeft(a) : null;
     const sub = cfg.sub || (started ? runningSub(a) : cd != null ? cdSub(a) : l.tapStart);
     const more = rows.length - 1;
-    const foot = open ? l.less : more > 0 ? (fr() ? `+${more} entrée${more > 1 ? 's' : ''}` : `+${more} more`) : l.actions;
-    const footAria = open ? l.less : (more === 0 ? l.showActions : fr() ? (more === 1 ? 'Voir l’autre entrée' : `Voir les ${more} autres`) : `Show ${more} more`);
+    const foot = open ? l.less : more > 0 ? l.more(more) : l.actions;
+    const footAria = open ? l.less : (more === 0 ? l.showActions : l.showMore(more));
     return `<div class="card${open ? ' wide' : ''}" style="${themeVars(th)}">
       <button class="card-main" ${attr(cfg.act)}>
         <span class="card-top"><span class="card-dot">${th.emoji}</span><span class="card-arrow">${cfg.arrow}</span></span>
@@ -670,7 +744,7 @@
   })();
   const ICON = {
     // floppy disk: violet body, orange shutter, coral label
-    save: svg('<path d="M4 4a1 1 0 0 1 1-1h12l3.5 3.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="#8b93ff"/><rect x="7.5" y="3" width="7" height="5" rx="1" fill="#ffb14e"/><rect x="12.3" y="4" width="1.6" height="3" rx=".5" fill="#161320"/><rect x="7" y="13" width="10" height="8" rx="1.2" fill="#e7895c"/>'),
+    save: svg(`<path d="M4 4a1 1 0 0 1 1-1h12l3.5 3.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="${THEME.sleep.c}"/><rect x="7.5" y="3" width="7" height="5" rx="1" fill="${THEME.eat.c}"/><rect x="12.3" y="4" width="1.6" height="3" rx=".5" fill="#161320"/><rect x="7" y="13" width="10" height="8" rx="1.2" fill="${THEME.poop.c}"/>`),
     // gear: one 8-tooth outline with a hole, filled with a brushed-metal grey gradient
     gear: svg(`<defs><linearGradient id="metal" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e3e6eb"/><stop offset=".55" stop-color="#9aa1ac"/><stop offset="1" stop-color="#6b7280"/></linearGradient></defs><path fill="url(#metal)" fill-rule="evenodd" d="${gearPath}"/><circle cx="12" cy="12" r="3" fill="none" stroke="#5b616b" stroke-width=".8"/>`)
   };
@@ -687,7 +761,7 @@
         </div>
         <div class="head-tools">
           <button class="icon-btn stats-btn" aria-label="${esc(l.trends)}" ${attr('openGraphs')}>
-            <span style="height:9px;background:#8b93ff"></span><span style="height:16px;background:#ffb14e"></span><span style="height:12px;background:#e7895c"></span>
+            <span style="height:9px;background:${THEME.sleep.c}"></span><span style="height:16px;background:${THEME.eat.c}"></span><span style="height:12px;background:${THEME.poop.c}"></span>
           </button>
           <button class="icon-btn" aria-label="${esc(l.archive)}" ${attr('openArchive')}>${ICON.save}</button>
           <button class="icon-btn" aria-label="${esc(l.settings)}" ${attr('openSettings')}>${ICON.gear}</button>
@@ -705,35 +779,35 @@
 
   const switchHtml = () => {
     if (state.switchPrompt == null) return '';
-    const f = fr(), type = state.switchPrompt, other = otherType(type);
+    const l = L(), type = state.switchPrompt, other = otherType(type);
     const nt = typeLabel(type).toLowerCase(), ct = typeLabel(other).toLowerCase();
     return modal(`
       <div class="warn">⚠️</div>
-      <div class="modal-title">${f ? `Un chrono ${ct} est déjà en cours` : `A ${ct} timer is already running`}</div>
-      <div class="modal-body">${f
-        ? `Voulez-vous l’arrêter et l’enregistrer pour lancer le ${nt}, ou garder les deux chronos en même temps ?`
-        : `Do you want to stop and save it to start the ${nt}, or keep both timers running at the same time?`}</div>
+      <div class="modal-title">${l.switchTitle(ct)}</div>
+      <div class="modal-body">${l.switchBody(nt)}</div>
       <div class="modal-btns stack">
-        <button class="btn-solid" ${attr('stopOtherAndStart')}>${f ? `Arrêter le ${ct} et lancer le ${nt}` : `Stop ${ct} and start ${nt}`}</button>
-        <button class="btn-solid alt" ${attr('keepBoth')}>${f ? 'Garder les deux en même temps' : 'Keep both running'}</button>
-        <button class="btn-line" ${attr('cancelSwitch')}>${L().cancel}</button>
+        <button class="btn-solid" ${attr('stopOtherAndStart')}>${l.switchStop(ct, nt)}</button>
+        <button class="btn-solid alt" ${attr('keepBoth')}>${l.keepBoth}</button>
+        <button class="btn-line" ${attr('cancelSwitch')}>${l.cancel}</button>
       </div>`);
   };
 
   const poopHtml = () => {
     if (!state.poopPicker) return '';
     const l = L();
-    const sizes = [['small', '20px'], ['medium', '28px'], ['large', '36px'], ['xl', '44px']];
+    const sizes = POOP_SIZES.map((k, i) => [k, `${20 + i * 8}px`]);
     const kinds = [['color', l.anomColorBtn], ['blood', l.anomBloodBtn], ['other', l.anomOtherBtn]];
     return modal(`
       <div class="modal-title">${l.howBig}</div>
-      <div class="sizes">${sizes.map(([k, fs]) => `<button class="size-btn" ${attr('poopSize', k)}><span style="font-size:${fs}">💩</span><span>${l[k]}</span></button>`).join('')}</div>
+      <div class="sizes${state.poopSel.size ? ' has-sel' : ''}">${sizes.map(([k, fs]) => `<button class="size-btn${state.poopSel.size === k ? ' on' : ''}" aria-pressed="${state.poopSel.size === k}" ${attr('poopSize', k)}><span style="font-size:${fs}">💩</span><span>${l[k]}</span></button>`).join('')}</div>
+      ${state.useCons ? `<div class="modal-sub">${l.consistency}</div>
+      <div class="cons-row">${CONSISTENCIES.map(c => `<button class="cons-btn${state.poopSel.consistency === c.key ? ' on' : ''}" aria-pressed="${state.poopSel.consistency === c.key}" ${attr('poopCons', c.key)}><span>${c.emoji}</span>${esc(fr() ? c.fr : c.en)}</button>`).join('')}</div>` : ''}
       <button class="anom-row${state.anomalyOn ? ' on' : ''}" ${attr('toggleAnomaly')}><span class="check">${state.anomalyOn ? '✓' : ''}</span><span class="anom-label">${l.anomaly}</span></button>
       ${state.anomalyOn ? `<div class="anom-kinds"><div class="lbl">${l.anomalyKind}</div>
         <div class="btns">${kinds.map(([k, lb]) => `<button class="${state.anomalyKind === k ? 'on' : ''}" ${attr('anomalyKind', k)}>${lb}</button>`).join('')}</div>
         ${state.anomalyKind === 'other' ? `<input class="text-in" data-i="anomalyNote" id="anomalyNote" value="${esc(state.anomalyNote)}" placeholder="${esc(l.anomalyPlaceholder)}">` : ''}
       </div>` : ''}
-      <button class="cancel-wide" ${attr('cancelPoop')}>${l.cancel}</button>`, 'm370');
+      <div class="modal-btns"><button class="btn-line" ${attr('cancelPoop')}>${l.cancel}</button><button class="btn-solid poop" ${attr('confirmPoop')}>${l.confirm}</button></div>`, 'm370');
   };
 
   const obsHtml = () => {
@@ -762,7 +836,7 @@
   const editHtml = () => {
     const d = state.editDraft;
     if (!d) return '';
-    const l = L(), hasDur = d.type !== 'poop' && d.type !== 'obs';
+    const l = L(), hasDur = hasDuration(d.type);
     const emoji = THEME[d.type].emoji;
     const num = (key, val) => `<input type="number" inputmode="numeric" min="0" data-i="edit_${key}" value="${esc(val)}" placeholder="0">`;
     let body = `<div class="edit-title">${emoji} ${l.edit} ${l.kind[d.type]}</div>
@@ -774,7 +848,8 @@
       <div class="fl">${l.duration}</div>
       <div class="dur-row">${num('durH', d.durH)}<span>h</span>${num('durM', d.durM)}<span>min</span>${num('durS', d.durS)}<span>s</span></div>
       <div class="dur-bumps">${[-5, -1, 1, 5].map(v => `<button ${attr('editDur', v)}>${v > 0 ? '+' : '−'}${Math.abs(v)} min</button>`).join('')}</div>`;
-    if (d.type === 'poop') body += `<div class="fl">${l.size}</div><div class="pick-row">${['small', 'medium', 'large', 'xl'].map(s => `<button class="pick${d.size === s ? ' on-poop' : ''}" ${attr('editSize', s)}>${l[s]}</button>`).join('')}</div>`;
+    if (d.type === 'poop') body += `<div class="fl">${l.size}</div><div class="pick-row">${POOP_SIZES.map(s => `<button class="pick${d.size === s ? ' on-poop' : ''}" ${attr('editSize', s)}>${l[s]}</button>`).join('')}</div>
+      ${state.useCons ? `<div class="fl">${l.consistency}</div><div class="pick-row">${CONSISTENCIES.map(c => `<button class="pick${d.consistency === c.key ? ' on-poop' : ''}" ${attr('editCons', c.key)}>${c.emoji} ${esc(fr() ? c.fr : c.en)}</button>`).join('')}</div>` : ''}`;
     if (d.type === 'sleep') body += `<div class="fl">${l.sleepType}</div><div class="mode-opts">${SLEEP_MODES.map(m => `<button class="${d.mode === m.key ? 'on' : ''}" ${attr('editMode', d.mode === m.key ? '' : m.key)}><span>${m.emoji}</span>${esc(fr() ? m.fr : m.en)}</button>`).join('')}</div>`;
     if (d.type === 'obs') body += `<div class="fl">${l.obsKind}</div><div class="pick-col">${OBS_KINDS.map(k => `<button class="pick obs-opt${d.obs === k.key ? ' on-obs' : ''}" ${attr('editObs', k.key)}><span>${k.emoji}</span><span>${esc(fr() ? k.fr : k.en)}</span></button>`).join('')}</div>`;
     if (d.type === 'eat' && !d.breast) body += `<div class="fl">${l.milkLabel}</div>
@@ -792,7 +867,7 @@
     const l = L(), isEat = a.type === 'eat', isSleep = a.type === 'sleep', th = THEME[a.type];
     const started = !!a.startedAt, running = !!a.running;
     const cdLeft = isSleep ? countdownLeft(a) : null;
-    const status = cdLeft != null ? (fr() ? '⏳ Le dodo démarre dans' : '⏳ Sleep starts in') : !started ? l.ready : running ? l.recording : l.paused;
+    const status = cdLeft != null ? l.cdStatus : !started ? l.ready : running ? l.recording : l.paused;
     // shortcut to the other timer when both are running
     const other = otherType(a.type), ot = state.timers[other];
     const otherChip = isStarted(other)
@@ -800,7 +875,7 @@
       : '';
     const unit = state.unit, oz = unit === 'oz';
     const presetBtn = (v) => `<button class="${parseFloat(a.milk) === v ? 'on' : ''}" ${attr('presetMilk', v)}>${v}</button>`;
-    const bumps = (fn, vals, fmt) => vals.map(v => `<button ${attr(fn, v)}>${v > 0 ? '+' : '−'}${Math.abs(v)}</button>`).join('');
+    const bumps = (fn, vals) => vals.map(v => `<button ${attr(fn, v)}>${v > 0 ? '+' : '−'}${Math.abs(v)}</button>`).join('');
     // Each group sits in a collapsible panel; only one is open at a time. The head button is the
     // toggle (bigger and centered while open) and the body grows/shrinks with a CSS transition.
     // before the timer starts the volume panel stays open and cannot be folded
@@ -842,13 +917,12 @@
       mid += panel('volume', 'volume', title, body);
       mid += `<button class="obs-quick dimmable" ${attr('logObs')}>📝 ${l.obsQuick}</button>`;
     }
-    const ctas = cdLeft != null
-      ? `<button class="cta" ${attr('startTimer')}>${fr() ? 'Lancer maintenant' : 'Start now'}</button><button class="cta-ghost" ${attr('cancelCountdown')}>${fr() ? 'Annuler' : 'Cancel'}</button>`
-      : isSleep && !started
-      ? `<button class="cta" ${attr('startTimer')}>${l.start}</button><button class="cta-ghost" aria-label="${fr() ? 'Compte à rebours de 15 minutes' : '15 minute countdown'}" ${attr('startCountdown')}>⏳ ${fr() ? 'Compte à rebours' : 'Countdown'} · ${COUNTDOWN_MIN} min</button>`
-      : !started
-      ? `<button class="cta" ${attr('startTimer')}>${l.start}</button>`
-      :`<button class="cta" ${attr('stopTimer')}>${l.stop}</button><button class="cta-ghost" ${attr('togglePause')}>${running ? l.pause : l.resume}</button>`;
+    let ctas;
+    if (cdLeft != null) ctas = `<button class="cta" ${attr('startTimer')}>${l.startNow}</button><button class="cta-ghost" ${attr('cancelCountdown')}>${l.cancel}</button>`;
+    else if (!started) {
+      ctas = `<button class="cta" ${attr('startTimer')}>${l.start}</button>`;
+      if (isSleep && state.useCountdown) ctas += `<button class="cta-ghost" aria-label="${esc(l.cdAria(state.cdMinutes))}" ${attr('startCountdown')}>⏳ ${l.countdown} · ${state.cdMinutes} min</button>`;
+    } else ctas = `<button class="cta" ${attr('stopTimer')}>${l.stop}</button><button class="cta-ghost" ${attr('togglePause')}>${running ? l.pause : l.resume}</button>`;
     return `<div class="full"><div class="full-in" style="${themeVars(th)}">
       <div class="bar dimmable">
         <button class="back" ${attr('goHome')}>‹ ${l.menu}</button>
@@ -860,7 +934,7 @@
         <div class="t-top">
         <div class="status dimmable" style="font-size:${isEat ? 12 : 14}px">${status}</div>
         <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
-        ${started ? `<div class="from-time dimmable">${fr() ? 'Début' : 'Started'} ${esc(clockTime(a.startedAt))}</div>` : ''}
+        ${started ? `<div class="from-time dimmable">${l.startedAt} ${esc(clockTime(a.startedAt))}</div>` : ''}
         ${sinceHtml}
         </div>
         <div class="t-mid">${mid}</div>
@@ -873,7 +947,7 @@
   const windowStart3w = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime() - 20 * DAY; };
 
   const buildChart = () => {
-    const m = state.metric, th = THEME[m], l = L(), f = fr();
+    const m = state.metric, th = THEME[m], l = L();
     const t0 = new Date(); t0.setHours(0, 0, 0, 0);
     const todayStart = t0.getTime();
     const days = [];
@@ -891,23 +965,23 @@
       return { ...d, disp, pct, bg: d.isToday ? th.c : th.dim };
     });
     let heading, big, unit, sub;
-    if (m === 'sleep') { heading = l.hSleep; big = total.toFixed(1); unit = 'h'; sub = f ? `moy ${(total / 7).toFixed(1)} h par jour` : `avg ${(total / 7).toFixed(1)}h per day`; }
+    if (m === 'sleep') { heading = l.hSleep; big = total.toFixed(1); unit = 'h'; sub = l.avgSleep((total / 7).toFixed(1)); }
     else if (m === 'eat') {
       heading = l.hMilk; big = String(Math.round(total)); unit = 'ml';
       const feeds = state.archive.filter(e => e.type === 'eat' && e.timestamp >= days[0].start).length;
-      sub = f ? `${feeds} repas · moy ${Math.round(total / 7)} ml par jour` : `${feeds} feeds · avg ${Math.round(total / 7)} ml per day`;
-    } else { heading = l.hPoop; big = String(total); unit = ''; sub = f ? `moy ${(total / 7).toFixed(1)} par jour` : `avg ${(total / 7).toFixed(1)} per day`; }
+      sub = l.sumEat(feeds, Math.round(total / 7));
+    } else { heading = l.hPoop; big = String(total); unit = ''; sub = l.avgPoop((total / 7).toFixed(1)); }
     return { bars, heading, big, unit, sub, empty: total === 0 };
   };
 
+  const distSub = (days, peak) => `${L().last3w} · ${L().daysWithData(days)} · ${L().peakAt(peak)}`;
   const distHtml = (title, sub, legend, counts, grid) => {
-    const f = fr();
     const max = Math.max(...counts, 1);
     const hours = counts.map((total, i) => {
       const segs = grid[i].segs.map(s => `<div style="width:100%;height:${(s.n / total) * 100}%;background:${s.bg}"></div>`).join('');
       return `<div class="hour${i % 6 === 0 ? ' tick' : ''}"><div class="hour-fill${total ? '' : ' none'}" style="height:${(total / max) * 100}%">${segs}</div></div>`;
     }).join('');
-    const yAxis = [max, max / 2, 0].map((v, i) => `<span style="top:${i * 50}%">${Math.round(v * 10) / 10}${f ? 'x' : '×'}</span>`).join('');
+    const yAxis = [max, max / 2, 0].map((v, i) => `<span style="top:${i * 50}%">${Math.round(v * 10) / 10}${L().times}</span>`).join('');
     const ax = [0, 6, 12, 18, 24].map((h, i) => `<span style="text-align:${i === 0 ? 'left' : i === 4 ? 'right' : 'center'}">${h}h</span>`).join('');
     return `<div class="panel">
       <div class="ph">${title}</div><div class="psub">${sub}</div>
@@ -918,40 +992,38 @@
   };
 
   const eatHoursHtml = () => {
-    const f = fr(), from = windowStart3w();
+    const l = L(), from = windowStart3w();
     const items = state.archive.filter(e => e.type === 'eat' && (e.trueStartedAt || e.timestamp) >= from);
     if (!items.length) return '';
     const grid = Array.from({ length: 24 }, () => ({ bottle: 0, breast: 0 }));
     items.forEach(e => { grid[new Date(e.trueStartedAt || e.timestamp).getHours()][e.breast ? 'breast' : 'bottle']++; });
-    const colors = { bottle: '#ffb14e', breast: '#ffd9a0' };
+    const colors = { bottle: THEME.eat.c, breast: '#ffd9a0' };
     const counts = grid.map(c => c.bottle + c.breast);
     const g = grid.map(c => ({ segs: ['bottle', 'breast'].filter(k => c[k] > 0).map(k => ({ n: c[k], bg: colors[k] })) }));
     const days = new Set(items.map(e => new Date(e.timestamp).toDateString())).size || 1;
     const peak = counts.indexOf(Math.max(...counts));
-    return distHtml(f ? 'Répartition des repas sur la journée' : 'Feed distribution over the day',
-      f ? `3 dernières semaines · ${days} jour${days > 1 ? 's' : ''} avec données · pic vers ${peak}h` : `Last 3 weeks · ${days} day${days > 1 ? 's' : ''} with data · peak around ${peak}:00`,
-      [{ label: f ? 'Biberon' : 'Bottle', bg: colors.bottle }, { label: L().breastfeeding, bg: colors.breast }], counts, g);
+    return distHtml(l.eatDistTitle, distSub(days, peak),
+      [{ label: l.bottle, bg: colors.bottle }, { label: l.breastfeeding, bg: colors.breast }], counts, g);
   };
 
   const poopHoursHtml = () => {
-    const f = fr(), l = L(), from = windowStart3w();
+    const l = L(), from = windowStart3w();
     const items = state.archive.filter(e => e.type === 'poop' && e.timestamp >= from);
-    const sizes = [['small', '#f7d3bb'], ['medium', '#f0a07a'], ['large', '#e7895c'], ['xl', '#b8532a']];
+    const sizes = [['small', '#f7d3bb'], ['medium', '#f0a07a'], ['large', THEME.poop.c], ['xl', '#b8532a']];
     const grid = Array.from({ length: 24 }, () => ({ small: 0, medium: 0, large: 0, xl: 0, unknown: 0 }));
     items.forEach(e => { const c = grid[new Date(e.timestamp).getHours()]; c[e.size && c[e.size] !== undefined ? e.size : 'unknown']++; });
     const counts = grid.map(c => c.small + c.medium + c.large + c.xl + c.unknown);
     const g = grid.map(c => ({ segs: [...sizes.filter(([k]) => c[k] > 0).map(([k, bg]) => ({ n: c[k], bg })), ...(c.unknown ? [{ n: c.unknown, bg: 'rgba(231,137,92,.3)' }] : [])] }));
     const days = new Set(items.map(e => new Date(e.timestamp).toDateString())).size || 1;
     const peak = counts.indexOf(Math.max(...counts, 1));
-    const sub = !items.length ? (f ? 'Aucune donnée' : 'No data yet')
-      : (f ? `3 dernières semaines · ${days} jour${days > 1 ? 's' : ''} avec données · pic vers ${peak}h` : `Last 3 weeks · ${days} day${days > 1 ? 's' : ''} with data · peak around ${peak}:00`);
+    const sub = !items.length ? l.noData : distSub(days, peak);
     const legend = sizes.filter(([k]) => grid.some(c => c[k] > 0)).map(([k, bg]) => ({ label: l[k], bg }));
-    return distHtml(f ? 'Répartition moyenne sur la journée' : 'Average distribution over the day', sub, legend, counts, g);
+    return distHtml(l.poopDistTitle, sub, legend, counts, g);
   };
 
   // Sleep: how often a sleep starts in each hour of the day (last 3 weeks)
   const sleepHoursHtml = () => {
-    const f = fr(), from = windowStart3w();
+    const l = L(), from = windowStart3w();
     const items = state.archive.filter(e => e.type === 'sleep' && e.timestamp >= from);
     if (!items.length) return '';
     const counts = new Array(24).fill(0);
@@ -959,9 +1031,8 @@
     const g = counts.map(n => ({ segs: n ? [{ n, bg: THEME.sleep.c }] : [] }));
     const days = new Set(items.map(e => new Date(e.timestamp).toDateString())).size || 1;
     const peak = counts.indexOf(Math.max(...counts));
-    return distHtml(f ? 'Fréquence par heure de début' : 'Frequency by start hour',
-      f ? `${items.length} dodos sur 3 semaines · ${days} jour${days > 1 ? 's' : ''} avec données · pic vers ${peak}h` : `${items.length} sleeps over 3 weeks · ${days} day${days > 1 ? 's' : ''} with data · peak around ${peak}:00`,
-      [{ label: f ? 'Dodos commencés' : 'Sleeps started', bg: THEME.sleep.c }], counts, g);
+    return distHtml(l.sleepFreqTitle, `${l.sleepFreqSub(items.length)} · ${l.daysWithData(days)} · ${l.peakAt(peak)}`,
+      [{ label: l.sleepsStarted, bg: THEME.sleep.c }], counts, g);
   };
 
   // One dot per entry: x = start time of day, y = duration (sleep) or volume (feed).
@@ -980,7 +1051,7 @@
   };
 
   const sleepScatterHtml = () => {
-    const f = fr(), from = windowStart3w(), weekAgo = Date.now() - 7 * DAY;
+    const l = L(), from = windowStart3w(), weekAgo = Date.now() - 7 * DAY;
     const items = state.archive.filter(e => e.type === 'sleep' && e.timestamp >= from);
     if (!items.length) return '';
     const maxH = Math.max(...items.map(e => (e.duration || 0) / 3600));
@@ -989,48 +1060,45 @@
       const d = new Date(e.timestamp), recent = e.timestamp >= weekAgo;
       return { min: d.getHours() * 60 + d.getMinutes(), val: (e.duration || 0) / 3600, bg: THEME.sleep.c, op: recent ? .8 : .35, tip: `${timeOf(e.timestamp)} · ${durLabel(e.duration)}` };
     });
-    return scatterHtml(f ? 'Durée selon l’heure de début' : 'Duration by start time',
-      f ? 'Chaque point est un dodo : plus il est haut, plus il a duré. Les points qui s’empilent montrent les horaires habituels.' : 'Each dot is a sleep: the higher, the longer. Stacked dots show usual times.',
-      [{ label: f ? '7 derniers jours' : 'Last 7 days', bg: THEME.sleep.c }, { label: f ? 'Avant' : 'Earlier', bg: 'rgba(139,147,255,.35)' }],
+    return scatterHtml(l.durTitle, l.durDesc,
+      [{ label: l.last7, bg: THEME.sleep.c }, { label: l.earlier, bg: 'rgba(139,147,255,.35)' }],
       pts, yMax, (v) => `${Math.round(v * 10) / 10}h`);
   };
 
   const eatScatterHtml = () => {
-    const f = fr(), from = windowStart3w();
+    const l = L(), from = windowStart3w();
     const items = state.archive.filter(e => e.type === 'eat' && !e.breast && (e.trueStartedAt || e.timestamp) >= from); // breastfeeds have no volume
     if (!items.length) return '';
-    const colors = { bottle: '#ffb14e', breast: '#ffd9a0' };
     const maxMl = Math.max(...items.map(e => toMl(e.milk, e.unit)));
     const yMax = Math.max(100, Math.ceil(maxMl / 50) * 50);
     const pts = items.map(e => {
       const ts = e.trueStartedAt || e.timestamp, d = new Date(ts), ml = toMl(e.milk, e.unit);
-      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: colors[e.breast ? 'breast' : 'bottle'], op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml` };
+      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: THEME.eat.c, op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml` };
     });
-    return scatterHtml(f ? 'Volume selon l’heure de début' : 'Volume by start time',
-      f ? 'Chaque point est un repas : plus il est haut, plus bébé a bu. Les points qui s’empilent montrent les horaires habituels.' : 'Each dot is a feed: the higher, the more baby drank. Stacked dots show usual times.',
-      [{ label: f ? 'Biberon' : 'Bottle', bg: colors.bottle }, ],
+    return scatterHtml(l.volTitle, l.volDesc,
+      [{ label: l.bottle, bg: THEME.eat.c }],
       pts, yMax, (v) => `${Math.round(v)} ml`);
   };
 
   const dayHtml = () => {
-    const m = state.metric, th = THEME[m], l = L(), f = fr(), s = state.selectedDay;
+    const m = state.metric, l = L(), s = state.selectedDay;
     const items = sortDesc(state.archive.filter(e => e.type === m && e.timestamp >= s && e.timestamp < s + DAY));
     const pos = (ts) => ((ts - s) / DAY) * 100;
     let total, strip = '', events;
     if (m === 'sleep') {
       const sec = items.reduce((a, e) => a + (e.duration || 0), 0);
-      total = f ? `${(sec / 3600).toFixed(1)} h de sommeil · ${items.length} dodo${items.length === 1 ? '' : 's'}` : `${(sec / 3600).toFixed(1)}h asleep · ${items.length} nap${items.length === 1 ? '' : 's'}`;
-      strip = items.map(e => { const left = pos(e.timestamp); return `<div style="position:absolute;top:15px;bottom:15px;left:${left}%;width:${Math.max(Math.min(((e.duration || 0) / 86400) * 100, 100 - left), 1)}%;background:#8b93ff;border-radius:6px;min-width:3px"></div>`; }).join('');
+      total = l.daySleep((sec / 3600).toFixed(1), items.length);
+      strip = items.map(e => { const left = pos(e.timestamp); return `<div style="position:absolute;top:15px;bottom:15px;left:${left}%;width:${Math.max(Math.min(((e.duration || 0) / 86400) * 100, 100 - left), 1)}%;background:${THEME.sleep.c};border-radius:6px;min-width:3px"></div>`; }).join('');
       events = items.map(e => [timeOf(e.timestamp), durLabel(e.duration)]);
     } else if (m === 'eat') {
       const ml = items.reduce((a, e) => a + toMl(e.milk, e.unit), 0), maxMl = Math.max(...items.map(e => toMl(e.milk, e.unit)), 1);
-      total = f ? `${Math.round(ml)} ml · ${items.length} repas` : `${Math.round(ml)} ml · ${items.length} feed${items.length === 1 ? '' : 's'}`;
-      strip = items.map(e => { const v = toMl(e.milk, e.unit); return `<div style="position:absolute;bottom:0;left:${pos(e.timestamp)}%;width:7px;height:${Math.max(v / maxMl * 100, v > 0 ? 14 : 7)}%;background:#ffb14e;border-radius:3px 3px 0 0;transform:translateX(-3.5px)"></div>`; }).join('');
+      total = l.dayEat(Math.round(ml), items.length);
+      strip = items.map(e => { const v = toMl(e.milk, e.unit); return `<div style="position:absolute;bottom:0;left:${pos(e.timestamp)}%;width:7px;height:${Math.max(v / maxMl * 100, v > 0 ? 14 : 7)}%;background:${THEME.eat.c};border-radius:3px 3px 0 0;transform:translateX(-3.5px)"></div>`; }).join('');
       events = items.map(e => [timeOf(e.timestamp), (e.milk ? `${e.milk} ${e.unit || 'ml'} · ` : '') + durLabel(e.duration)]);
     } else {
-      total = f ? `${items.length} caca${items.length === 1 ? '' : 's'}` : `${items.length} poop${items.length === 1 ? '' : 's'}`;
-      strip = items.map(e => `<div style="position:absolute;top:50%;left:${pos(e.timestamp)}%;width:14px;height:14px;border-radius:50%;background:#e7895c;transform:translate(-50%,-50%);border:2px solid #1b1726"></div>`).join('');
-      events = items.map(e => [timeOf(e.timestamp), l.wPoop + (e.size ? ' · ' + l[e.size] : '')]);
+      total = l.dayPoop(items.length);
+      strip = items.map(e => `<div style="position:absolute;top:50%;left:${pos(e.timestamp)}%;width:14px;height:14px;border-radius:50%;background:${THEME.poop.c};transform:translate(-50%,-50%);border:2px solid #1b1726"></div>`).join('');
+      events = items.map(e => [timeOf(e.timestamp), l.wPoop + (poopDesc(e) ? ' · ' + poopDesc(e) : '')]);
     }
     const label = new Date(s).toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric' });
     return `<div class="panel plain">
@@ -1045,14 +1113,14 @@
   const allEntriesHtml = () => {
     if (!state.archive.length) return '';
     const l = L();
-    const f = fr(), flt = state.archiveFilter, asc = state.archiveSort === 'asc';
+    const flt = state.archiveFilter, asc = state.archiveSort === 'asc';
     const count = (t) => (t === 'all' ? state.archive.length : state.archive.filter(e => e.type === t).length);
-    const chips = [['all', f ? 'Tout' : 'All'], ['sleep', l.mSleep], ['eat', l.mEat], ['poop', l.mPoop], ['obs', l.obs]].map(([t, label]) => {
+    const chips = [['all', l.all], ['sleep', l.mSleep], ['eat', l.mEat], ['poop', l.mPoop], ['obs', l.obs]].map(([t, label]) => {
       const th = THEME[t];
       const on = flt === t;
       return `<button class="fchip${on ? ' on' : ''}" ${attr('archiveFilter', t)} style="${on ? `background:${th ? th.c : '#f4f1f8'};color:${th ? th.ink : '#0f0d14'};border-color:transparent` : ''}">${th ? th.emoji + ' ' : ''}${esc(label)} <i>${count(t)}</i></button>`;
     }).join('');
-    const sortLabel = asc ? (f ? '↑ Anciennes d’abord' : '↑ Oldest first') : (f ? '↓ Récentes d’abord' : '↓ Newest first');
+    const sortLabel = asc ? l.oldestFirst : l.newestFirst;
     const list = sortDesc(state.archive.filter(e => flt === 'all' || e.type === flt));
     if (asc) list.reverse();
     const rows = list.map(e => {
@@ -1061,13 +1129,13 @@
       if (e.type === 'sleep') detail = durLabel(e.duration) + (e.mode ? ` · ${sleepModeLabel(e.mode)}` : '');
       else if (e.type === 'eat') detail = e.breast ? `${e.side === 'left' ? l.left : l.right}${e.milk ? ` · ~${e.milk}ml` : ''}` : (e.milk ? `${e.milk}${e.unit || 'ml'}` : durLabel(e.duration));
       else if (e.type === 'obs') detail = obsLabel(e.obs);
-      else detail = (e.size ? (l[e.size] || e.size) : '') + (e.anomaly ? ` • ${l.anomLabel} : ${anomalyLabelFor(e)}` : '');
+      else detail = poopDesc(e) + (e.anomaly ? ` • ${l.anomLabel} : ${anomalyLabelFor(e)}` : '');
       return `<div class="all-row"><span class="ic">${icon}</span><span class="tm">${esc(timeOf(e.timestamp))}</span><span class="dt">${esc(dateOf(e.timestamp))}</span><span class="dd">${esc(detail)}</span><button aria-label="Delete" ${attr('removeArchive', e.id)}>×</button></div>`;
     }).join('');
     return `<div class="panel plain">
       <div class="all-head"><div class="all-title">${l.allEntries}</div><button class="sort-btn" ${attr('archiveSort')}>${sortLabel}</button></div>
       <div class="fchips">${chips}</div>
-      ${rows || `<div class="no-data s">${f ? 'Aucune entrée de ce type.' : 'No entries of this type.'}</div>`}</div>`;
+      ${rows || `<div class="no-data s">${l.noEntryType}</div>`}</div>`;
   };
 
   const graphsHtml = () => {
@@ -1098,21 +1166,31 @@
     return `<div class="full graphs"><div class="full-in">
       ${pageBar(l.archive)}
       <div style="margin-top:6px"></div>
-      ${allEntriesHtml() || `<div class="panel plain"><div class="no-data s">${fr() ? 'Aucune entrée pour le moment.' : 'No entries yet.'}</div></div>`}
+      ${allEntriesHtml() || `<div class="panel plain"><div class="no-data s">${l.noEntry}</div></div>`}
     </div></div>`;
   };
 
   const settingsHtml = () => {
-    const l = L(), f = fr();
+    const l = L();
     const seg = (items, cur, act) => `<div class="set-seg">${items.map(([v, label]) => `<button class="${cur === v ? 'on' : ''}" ${attr(act, v)}>${label}</button>`).join('')}</div>`;
+    // a setting card with an on/off switch and a help text
+    const toggleCard = (title, key, act, help) => `<div class="panel plain set-card">
+        <div class="set-row"><div class="set-title">${title}</div>
+          <button class="switch${state[key] ? ' on' : ''}" role="switch" aria-checked="${state[key]}" aria-label="${esc(title)}" ${attr(act)}><i></i></button></div>
+        <div class="set-help">${help}</div>
+      </div>`;
     return `<div class="full graphs"><div class="full-in">
       ${pageBar(l.settings)}
       <div class="panel plain set-card"><div class="set-title">${l.language}</div>${seg([['en', 'English'], ['fr', 'Français']], state.lang, 'setLang')}</div>
       <div class="panel plain set-card"><div class="set-title">${l.volumeUnit}</div>${seg([['ml', 'ml'], ['oz', 'oz']], state.unit, 'setUnit')}</div>
+      ${toggleCard(l.durLink, 'durLink', 'toggleDurLink', l.durLinkHelp)}
+      ${toggleCard(l.consTitle, 'useCons', 'toggleCons', l.consHelp)}
       <div class="panel plain set-card">
-        <div class="set-row"><div class="set-title">${l.durLink}</div>
-          <button class="switch${state.durLink ? ' on' : ''}" role="switch" aria-checked="${state.durLink}" aria-label="${esc(l.durLink)}" ${attr('toggleDurLink')}><i></i></button></div>
-        <div class="set-help">${l.durLinkHelp}</div>
+        <div class="set-row"><div class="set-title">${l.cdTitle}</div>
+          <button class="switch${state.useCountdown ? ' on' : ''}" role="switch" aria-checked="${state.useCountdown}" aria-label="${esc(l.cdTitle)}" ${attr('toggleCountdown')}><i></i></button></div>
+        <div class="set-help">${l.cdHelp}</div>
+        ${state.useCountdown ? `<div class="set-num"><span>${l.cdLength}</span>
+          <div class="num-ctl"><button aria-label="−1 min" ${attr('cdBump', -1)}>−</button><input type="number" inputmode="numeric" min="1" max="${MAX_COUNTDOWN_MIN}" data-i="cdMin" id="cdMin" value="${state.cdMinutes}" aria-label="${l.minutes}"><button aria-label="+1 min" ${attr('cdBump', 1)}>+</button></div><span>min</span></div>` : ''}
       </div>
     </div></div>`;
   };
