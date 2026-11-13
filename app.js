@@ -3,7 +3,7 @@
 
   // ---------- constants ----------
   // state keys saved to localStorage (prefixed "ict_")
-  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes'];
+  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault'];
   const THEME = {
     sleep: { c: '#8b93ff', ink: '#16122a', tx: '#aab1ff', shadow: '#4f55b8', dim: 'rgba(139,147,255,.4)', emoji: '🌙' },
     eat: { c: '#ffb14e', ink: '#2e1c08', tx: '#ffc06a', shadow: '#b87a2b', dim: 'rgba(255,177,78,.42)', emoji: '🍼' },
@@ -29,6 +29,7 @@
     { key: 'puree', emoji: '🥣', fr: 'Purée', en: 'Mushy' },
     { key: 'solid', emoji: '🟤', fr: 'Solide', en: 'Solid' }
   ];
+  const EAT_COLORS = { bottle: THEME.eat.c, breast: '#ffd9a0' };   // charts: bottle vs breastfeed
   const POOP_SIZES = ['small', 'medium', 'large', 'xl'];
   const DAY = 86400000;
   const ML_PER_OZ = 29.5735;
@@ -78,6 +79,8 @@
       obsLogged: 'Remarque notée · copiée ✓',
       poopLogged: 'Caca enregistré · copié 💩',
       allEntries: 'Toutes les entrées', actions: 'Actions', less: 'Réduire', showActions: 'Afficher les actions',
+      feedDefault: 'Type de repas par défaut', feedDefaultHelp: 'Choix présélectionné à l’ouverture d’un nouveau repas ; modifiable à tout moment dans le chrono.',
+      breastVolume: 'Volume bu au sein', sideRequired: 'Indiquez le sein pour enregistrer l’allaitement.',
       confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
       startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
       cdAria: (n) => `Compte à rebours de ${n} minutes`,
@@ -148,6 +151,8 @@
       obsLogged: 'Note logged · copied ✓',
       poopLogged: 'Poop logged · copied 💩',
       allEntries: 'All entries', actions: 'Actions', less: 'Show less', showActions: 'Show actions',
+      feedDefault: 'Default feed type', feedDefaultHelp: 'Preselected when a new feed is opened; can still be changed at any time in the timer.',
+      breastVolume: 'Volume drunk at the breast', sideRequired: 'Pick the side to save the breastfeed.',
       confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
       startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
       cdAria: (n) => `${n} minute countdown`,
@@ -199,11 +204,12 @@
     useCons: loadJson('useCons', true),
     useCountdown: loadJson('useCountdown', true),
     cdMinutes: loadJson('cdMinutes', 15),
+    feedDefault: load('feedDefault', 'bottle'),   // what a new feed timer starts on: 'bottle' or 'breast'
     panel: null, mismatchPrompt: false,
     anomalyOn: false, anomalyKind: null, anomalyNote: '',
     toast: '', deleteTarget: null, editDraft: null,
     metric: 'sleep', selectedDay: null, archiveFilter: 'all', archiveSort: 'desc',
-    poopPicker: false, poopSel: emptyPoopSel(), obsPicker: false, switchPrompt: null, expanded: {}
+    poopPicker: false, poopSel: emptyPoopSel(), obsPicker: false, switchPrompt: null, sidePrompt: null, expanded: {}
   };
   // Upgrade data saved by older builds and make sure every saved value is valid.
   (function migrate() {
@@ -219,6 +225,7 @@
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
     if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings'].includes(state.view)) state.view = 'home';
     ['durLink', 'useCons', 'useCountdown'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
+    if (!['bottle', 'breast'].includes(state.feedDefault)) state.feedDefault = 'bottle';
     if (!(state.cdMinutes >= 1 && state.cdMinutes <= MAX_COUNTDOWN_MIN)) state.cdMinutes = 15;
     // breastfeed volumes used to be guessed from the duration; they were too inaccurate, so drop them
     const dropGuess = (e) => { if (e && e.estimated) { const c = { ...e }; delete c.milk; delete c.estimated; return c; } return e; };
@@ -273,6 +280,7 @@
   const typeLabel = (type) => L().typeName[type];
   const idPrefix = (type) => (type === 'eat' ? 'e' : 's');
   const upsertArchive = (entry) => sortDesc([entry, ...state.archive.filter(l => l.id !== entry.id)]);
+  const sideLabel = (side) => (side === 'left' ? L().left : side === 'right' ? L().right : '');
   const consLabel = (key) => { const c = CONSISTENCIES.find(x => x.key === key); return c ? (fr() ? c.fr : c.en) : ''; };
   // "Gros · Purée" for the size and consistency of a poop entry
   const poopDesc = (e) => [e.size ? (L()[e.size] || e.size) : '', consLabel(e.consistency)].filter(Boolean).join(' · ');
@@ -292,7 +300,7 @@
     if (e.type === 'sleep') return `${l.wSleep} · ${date} · ${time} · ${end} · ${durMin}min${e.mode ? ` · ${sleepModeLabel(e.mode)}` : ''}`;
     if (e.breast) {
       const side = e.side ? l.sideWord[e.side === 'left' ? 'left' : 'right'] : '';
-      const tail = [e.milk ? `~${e.milk}ml` : '', side].filter(Boolean).map(s => ` · ${s}`).join('');
+      const tail = [e.milk ? `${e.milk}${e.unit || 'ml'}` : '', side].filter(Boolean).map(s => ` · ${s}`).join('');
       return `${l.breastfeeding} · ${date} · ${time} - ${end} · ${durMin}min${tail}`;
     }
     const milk = e.milk ? `${e.milk}${e.unit || 'ml'}` : '';
@@ -327,7 +335,10 @@
   };
   const sleepModeOf = (key) => SLEEP_MODES.find(x => x.key === key);
   const sleepModeLabel = (key) => { const m = sleepModeOf(key); return m ? (fr() ? m.fr : m.en) : ''; };
-  const freshTimer = (type) => ({ type, startedAt: null, running: false, accMs: 0, lastStart: 0, milk: '', breast: false, mode: type === 'sleep' ? defaultSleepMode() : '' });
+  const freshTimer = (type) => {
+    const breast = type === 'eat' && state.feedDefault === 'breast';
+    return { type, startedAt: null, running: false, accMs: 0, lastStart: 0, milk: '', breast, mode: type === 'sleep' ? defaultSleepMode() : '' };
+  };
   const buildEntryFromTimer = (a) => {
     const ms = elapsedMs(a);
     const entry = {
@@ -336,8 +347,12 @@
       endTimestamp: (!a.running && a.pausedAt) ? a.pausedAt : Date.now()
     };
     if (a.type === 'eat') {
-      if (a.breast) { Object.assign(entry, { breast: true, side: a.side || 'right' }); }
-      else { entry.milk = (a.milk || '').toString().trim(); entry.unit = state.unit; }
+      const milk = (a.milk || '').toString().trim();
+      if (a.breast) {
+        entry.breast = true;
+        if (a.side) entry.side = a.side;
+        if (milk) { entry.milk = milk; entry.unit = state.unit; }   // optional for a breastfeed
+      } else { entry.milk = milk; entry.unit = state.unit; }
     }
     if (a.type === 'sleep' && a.mode) entry.mode = a.mode;
     return entry;
@@ -389,6 +404,8 @@
     try { if (navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
   };
   // Stop a running timer and save its entry; the timer slot is emptied.
+  // a running breastfeed cannot be saved before the side is known
+  const needsSide = (type) => { const t = state.timers[type]; return !!(t && t.type === 'eat' && t.breast && !t.side); };
   const finishTimer = (type) => {
     const entry = buildEntryFromTimer(state.timers[type]);
     commitEntry(entry, { timers: { ...state.timers, [type]: null } });
@@ -398,7 +415,6 @@
     set({ logs: [entry, ...state.logs.filter(l => l.id !== entry.id)], archive: upsertArchive(entry), ...extra });
   };
   const savedMsg = (type) => typeLabel(type) + L().savedSuffix;
-  const defaultSide = () => (curT() && curT().side) || 'right';
 
   const savePoop = () => {
     const sel = state.poopSel || {};
@@ -449,7 +465,7 @@
     if (!e) return;
     const active = {
       type: e.type, startedAt: e.timestamp, running: true, pausedAt: null,
-      accMs: (e.duration || 0) * 1000, lastStart: Date.now(), milk: e.milk || '', breast: !!e.breast, side: e.side || 'right', mode: e.mode || '', resumedId: e.id
+      accMs: (e.duration || 0) * 1000, lastStart: Date.now(), milk: e.milk || '', breast: !!e.breast, side: e.side || '', mode: e.mode || '', resumedId: e.id
     };
     set({ logs: state.logs.filter(l => l.id !== id), timers: { ...state.timers, [e.type]: active }, view: e.type, ...(e.type === 'eat' && e.unit ? { unit: e.unit } : {}) });
   };
@@ -475,7 +491,7 @@
     upd({ editDraft: {
       id, type: e.type, dt: toLocalInput(e.timestamp), endDt: toLocalInput(entryEnd(e)), milk: e.milk || '', unit: e.unit || 'ml',
       origMis: entryEnd(e) - (e.timestamp + dur * 1000), mode: e.mode || '',
-      size: e.size || '', consistency: e.consistency || '', obs: e.obs || '', breast: !!e.breast, side: e.side || 'right',
+      size: e.size || '', consistency: e.consistency || '', obs: e.obs || '', breast: !!e.breast, side: e.side || '',
       ...durParts(dur)
     } });
   };
@@ -510,8 +526,12 @@
       if (l.type === 'obs') next.obs = d.obs || l.obs;
       if (l.type === 'sleep') { if (d.mode) next.mode = d.mode; else delete next.mode; }
       if (l.type === 'eat') {
-        if (d.breast) { Object.assign(next, { breast: true, side: d.side || 'right' }); delete next.milk; delete next.estimated; }
-        else { next.milk = (d.milk || '').toString().trim(); next.unit = d.unit; }
+        const milk = (d.milk || '').toString().trim();
+        if (d.breast) {
+          next.breast = true;
+          if (d.side) next.side = d.side; else delete next.side;
+          if (milk) { next.milk = milk; next.unit = d.unit; } else delete next.milk;
+        } else { next.milk = milk; next.unit = d.unit; }
       }
       return next;
     };
@@ -535,6 +555,12 @@
     closePage: () => set({ view: 'home' }),
     toggleDurLink: () => set({ durLink: !state.durLink }),
     toggleCons: () => set({ useCons: !state.useCons }),
+    setFeedDefault: (v) => {
+      // a feed timer that was opened but not started yet follows the new default
+      const t = state.timers.eat;
+      const timers = t && !t.startedAt ? { ...state.timers, eat: { ...t, breast: v === 'breast' } } : state.timers;
+      set({ feedDefault: v, timers });
+    },
     cdBump: (v) => set({ cdMinutes: Math.min(MAX_COUNTDOWN_MIN, Math.max(1, state.cdMinutes + (+v))) }),
     toggleCountdown: () => set({ useCountdown: !state.useCountdown }),
     // collapsible timer panels: toggled in place (no re-render) so the CSS transition can animate
@@ -593,6 +619,7 @@
     },
     stopOtherAndStart: () => {
       const type = state.switchPrompt, other = otherType(type);
+      if (needsSide(other)) return upd({ sidePrompt: 'switch' });
       state.switchPrompt = null;
       const entry = buildEntryFromTimer(state.timers[other]);
       commitEntry(entry, { timers: { ...state.timers, [other]: null, [type]: startedTimer(state.timers[type], Date.now()) } });
@@ -615,12 +642,24 @@
       else { a.running = true; a.lastStart = Date.now(); a.pausedAt = null; }
       setTimerOf(a.type, a);
     },
-    stopTimer: () => { const type = curT().type; state.view = 'home'; finishTimer(type); },
+    stopTimer: () => {
+      const type = curT().type;
+      if (needsSide(type)) return upd({ sidePrompt: 'stop' });
+      state.view = 'home'; finishTimer(type);
+    },
+    // popup shown when a breastfeed is stopped without a side: pick one, then the stop continues
+    pickSide: (v) => {
+      const then = state.sidePrompt;
+      state.sidePrompt = null;
+      state.timers = { ...state.timers, eat: { ...state.timers.eat, side: v } };
+      if (then === 'switch') A.stopOtherAndStart(); else A.stopTimer();
+    },
+    cancelSidePrompt: () => upd({ sidePrompt: null }),
     bumpStart: (v) => bumpStart(+v), bumpTimer: (v) => bumpTimer(+v), bumpMilk: (v) => bumpMilk(+v),
     // presets are in ml: pick ml so the value shown matches the button
     presetMilk: (v) => patchTimer({ milk: String(v), breast: false }),
     modeBottle: () => patchTimer({ breast: false }),
-    modeBreast: () => patchTimer({ breast: true, side: defaultSide() }),
+    modeBreast: () => patchTimer({ breast: true }),
     breastSide: (v) => patchTimer({ side: v }),
     // the unit is a global setting: convert the volume typed in a running feed timer
     setUnit: (v) => {
@@ -682,8 +721,8 @@
       if (e.mode) anom = `<span class="pill-mode">${sleepModeOf(e.mode).emoji} ${esc(sleepModeLabel(e.mode))}</span>`;
     }
     else if (type === 'eat') {
-      main = e.breast ? `🤱 ${e.milk ? '~' + e.milk + 'ml' : (e.side === 'left' ? l.left : l.right)}` : (e.milk ? `${e.milk} ${e.unit || 'ml'}` : durLabel(e.duration));
-      line = `${timeOf(e.timestamp)} → ${end} · ${durLabel(e.duration)}`; big = true;
+      main = e.breast ? `🤱 ${e.milk ? `${e.milk} ${e.unit || 'ml'}` : (sideLabel(e.side) || l.breastfeeding)}` : (e.milk ? `${e.milk} ${e.unit || 'ml'}` : durLabel(e.duration));
+      line = `${timeOf(e.timestamp)} → ${end} · ${durLabel(e.duration)}${e.breast && e.milk && e.side ? ' · ' + sideLabel(e.side) : ''}`; big = true;
     } else if (type === 'poop') {
       main = timeOf(e.timestamp); line = poopDesc(e);
       if (e.anomaly) anom = `<span class="pill-anom">⚠ ${esc(anomalyLabelFor(e))}</span>`;
@@ -792,6 +831,17 @@
       </div>`);
   };
 
+  const sideHtml = () => {
+    if (!state.sidePrompt) return '';
+    const l = L();
+    return modal(`
+      <div class="warn">🤱</div>
+      <div class="modal-title">${l.whichSide}</div>
+      <div class="modal-body">${l.sideRequired}</div>
+      <div class="sides big"><button class="pick side" ${attr('pickSide', 'left')}>◀ ${l.left}</button><button class="pick side" ${attr('pickSide', 'right')}>${l.right} ▶</button></div>
+      <button class="cancel-wide" ${attr('cancelSidePrompt')}>${l.back}</button>`);
+  };
+
   const poopHtml = () => {
     if (!state.poopPicker) return '';
     const l = L();
@@ -852,11 +902,11 @@
       ${state.useCons ? `<div class="fl">${l.consistency}</div><div class="pick-row">${CONSISTENCIES.map(c => `<button class="pick${d.consistency === c.key ? ' on-poop' : ''}" ${attr('editCons', c.key)}>${c.emoji} ${esc(fr() ? c.fr : c.en)}</button>`).join('')}</div>` : ''}`;
     if (d.type === 'sleep') body += `<div class="fl">${l.sleepType}</div><div class="mode-opts">${SLEEP_MODES.map(m => `<button class="${d.mode === m.key ? 'on' : ''}" ${attr('editMode', d.mode === m.key ? '' : m.key)}><span>${m.emoji}</span>${esc(fr() ? m.fr : m.en)}</button>`).join('')}</div>`;
     if (d.type === 'obs') body += `<div class="fl">${l.obsKind}</div><div class="pick-col">${OBS_KINDS.map(k => `<button class="pick obs-opt${d.obs === k.key ? ' on-obs' : ''}" ${attr('editObs', k.key)}><span>${k.emoji}</span><span>${esc(fr() ? k.fr : k.en)}</span></button>`).join('')}</div>`;
-    if (d.type === 'eat' && !d.breast) body += `<div class="fl">${l.milkLabel}</div>
+    if (d.type === 'eat') body += `<div class="fl">${d.breast ? l.breastVolume : l.milkLabel}</div>
       <div class="milk-row"><input type="number" inputmode="decimal" data-i="editMilk" value="${esc(d.milk)}" placeholder="0">
       <button class="pick unit${d.unit === 'ml' ? ' on-unit' : ''}" ${attr('editUnit', 'ml')}>ml</button><button class="pick unit${d.unit === 'oz' ? ' on-unit' : ''}" ${attr('editUnit', 'oz')}>oz</button></div>`;
     if (d.type === 'eat' && d.breast) body += `<div class="fl">${l.whichSide}</div>
-      <div class="pick-row"><button class="pick side${d.side === 'left' ? ' on-eat' : ''}" ${attr('editSide', 'left')}>◀ ${l.left}</button><button class="pick side${d.side !== 'left' ? ' on-eat' : ''}" ${attr('editSide', 'right')}>${l.right} ▶</button></div>`;
+      <div class="pick-row"><button class="pick side${d.side === 'left' ? ' on-eat' : ''}" ${attr('editSide', 'left')}>◀ ${l.left}</button><button class="pick side${d.side === 'right' ? ' on-eat' : ''}" ${attr('editSide', 'right')}>${l.right} ▶</button></div>`;
     body += `<div class="modal-btns"><button class="btn-line" ${attr('cancelEdit')}>${l.cancel}</button><button class="btn-solid" ${attr('saveEdit')}>${l.save}</button></div>`;
     return modal(body, 'm370');
   };
@@ -902,9 +952,12 @@
     if (isEat) {
       const breast = !!a.breast;
       let body = `<div class="modes"><button class="${breast ? '' : 'on'}" ${attr('modeBottle')}>🍼 ${l.bottle}</button><button class="${breast ? 'on' : ''}" ${attr('modeBreast')}>🤱 ${l.breastfeeding}</button></div>`;
+      const milkInput = `<div class="milk-main"><input type="number" inputmode="decimal" id="milk" data-i="milk" value="${esc(a.milk || '')}" placeholder="0"><span class="unit-tag">${unit}</span></div>`;
       if (breast) body += `<div class="breast-q">${l.whichSide}</div>
-        <div class="sides"><button class="pick side${a.side === 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'left')}>◀ ${l.left}</button><button class="pick side${a.side !== 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'right')}>${l.right} ▶</button></div>`;
-      else body += `<div class="milk-main"><input type="number" inputmode="decimal" id="milk" data-i="milk" value="${esc(a.milk || '')}" placeholder="0"><span class="unit-tag">${unit}</span></div>
+        <div class="sides"><button class="pick side${a.side === 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'left')}>◀ ${l.left}</button><button class="pick side${a.side === 'right' ? ' on-eat' : ''}" ${attr('breastSide', 'right')}>${l.right} ▶</button></div>
+        <div class="vol-lb">${l.breastVolume}</div>${milkInput}
+        <div class="mbumps two">${bumps('bumpMilk', oz ? [-0.5, 0.5] : [-20, 20])}</div>`;
+      else body += `${milkInput}
         <div class="vol-lb">${l.snack}</div>
         <div class="presets snack">${(oz ? [0.5, 1, 1.5, 2] : [20, 40, 60, 80]).map(presetBtn).join('')}</div>
         <div class="vol-lb">${l.fullBottle}</div>
@@ -912,7 +965,7 @@
         <div class="mbumps">${bumps('bumpMilk', oz ? [-1, -0.5, 0.5, 1] : [-10, -5, 5, 10])}</div>`;
       // the panel title is the volume itself (value + unit), not the word "Volume"
       const title = breast
-        ? `🤱 <span>${a.side === 'left' ? l.left : l.right}</span>`
+        ? `🤱 <span>${sideLabel(a.side) || l.whichSide}${parseFloat(a.milk) > 0 ? ` · ${esc(a.milk)} ${unit}` : ''}</span>`
         : `🍼 <span class="vol-val">${esc(a.milk || '0')} ${unit}</span>`;
       mid += panel('volume', 'volume', title, body);
       mid += `<button class="obs-quick dimmable" ${attr('logObs')}>📝 ${l.obsQuick}</button>`;
@@ -997,7 +1050,7 @@
     if (!items.length) return '';
     const grid = Array.from({ length: 24 }, () => ({ bottle: 0, breast: 0 }));
     items.forEach(e => { grid[new Date(e.trueStartedAt || e.timestamp).getHours()][e.breast ? 'breast' : 'bottle']++; });
-    const colors = { bottle: THEME.eat.c, breast: '#ffd9a0' };
+    const colors = EAT_COLORS;
     const counts = grid.map(c => c.bottle + c.breast);
     const g = grid.map(c => ({ segs: ['bottle', 'breast'].filter(k => c[k] > 0).map(k => ({ n: c[k], bg: colors[k] })) }));
     const days = new Set(items.map(e => new Date(e.timestamp).toDateString())).size || 1;
@@ -1067,16 +1120,16 @@
 
   const eatScatterHtml = () => {
     const l = L(), from = windowStart3w();
-    const items = state.archive.filter(e => e.type === 'eat' && !e.breast && (e.trueStartedAt || e.timestamp) >= from); // breastfeeds have no volume
+    const items = state.archive.filter(e => e.type === 'eat' && (!e.breast || toMl(e.milk, e.unit) > 0) && (e.trueStartedAt || e.timestamp) >= from);   // a breastfeed counts once its volume was typed
     if (!items.length) return '';
     const maxMl = Math.max(...items.map(e => toMl(e.milk, e.unit)));
     const yMax = Math.max(100, Math.ceil(maxMl / 50) * 50);
     const pts = items.map(e => {
       const ts = e.trueStartedAt || e.timestamp, d = new Date(ts), ml = toMl(e.milk, e.unit);
-      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: THEME.eat.c, op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml` };
+      return { min: d.getHours() * 60 + d.getMinutes(), val: ml, bg: e.breast ? EAT_COLORS.breast : EAT_COLORS.bottle, op: .75, tip: `${timeOf(ts)} · ${Math.round(ml)} ml` };
     });
     return scatterHtml(l.volTitle, l.volDesc,
-      [{ label: l.bottle, bg: THEME.eat.c }],
+      [{ label: l.bottle, bg: EAT_COLORS.bottle }, ...(items.some(e => e.breast) ? [{ label: l.breastfeeding, bg: EAT_COLORS.breast }] : [])],
       pts, yMax, (v) => `${Math.round(v)} ml`);
   };
 
@@ -1127,7 +1180,7 @@
       const icon = e.type === 'sleep' ? '🌙' : e.type === 'eat' ? (e.breast ? '🤱' : '🍼') : e.type === 'obs' ? obsEmoji(e.obs) : '💩';
       let detail;
       if (e.type === 'sleep') detail = durLabel(e.duration) + (e.mode ? ` · ${sleepModeLabel(e.mode)}` : '');
-      else if (e.type === 'eat') detail = e.breast ? `${e.side === 'left' ? l.left : l.right}${e.milk ? ` · ~${e.milk}ml` : ''}` : (e.milk ? `${e.milk}${e.unit || 'ml'}` : durLabel(e.duration));
+      else if (e.type === 'eat') detail = e.breast ? [sideLabel(e.side), e.milk ? `${e.milk}${e.unit || 'ml'}` : ''].filter(Boolean).join(' · ') : (e.milk ? `${e.milk}${e.unit || 'ml'}` : durLabel(e.duration));
       else if (e.type === 'obs') detail = obsLabel(e.obs);
       else detail = poopDesc(e) + (e.anomaly ? ` • ${l.anomLabel} : ${anomalyLabelFor(e)}` : '');
       return `<div class="all-row"><span class="ic">${icon}</span><span class="tm">${esc(timeOf(e.timestamp))}</span><span class="dt">${esc(dateOf(e.timestamp))}</span><span class="dd">${esc(detail)}</span><button aria-label="Delete" ${attr('removeArchive', e.id)}>×</button></div>`;
@@ -1183,6 +1236,7 @@
       ${pageBar(l.settings)}
       <div class="panel plain set-card"><div class="set-title">${l.language}</div>${seg([['en', 'English'], ['fr', 'Français']], state.lang, 'setLang')}</div>
       <div class="panel plain set-card"><div class="set-title">${l.volumeUnit}</div>${seg([['ml', 'ml'], ['oz', 'oz']], state.unit, 'setUnit')}</div>
+      <div class="panel plain set-card"><div class="set-title">${l.feedDefault}</div>${seg([['bottle', `🍼 ${l.bottle}`], ['breast', `🤱 ${l.breastfeeding}`]], state.feedDefault, 'setFeedDefault')}<div class="set-help">${l.feedDefaultHelp}</div></div>
       ${toggleCard(l.durLink, 'durLink', 'toggleDurLink', l.durLinkHelp)}
       ${toggleCard(l.consTitle, 'useCons', 'toggleCons', l.consHelp)}
       <div class="panel plain set-card">
@@ -1223,7 +1277,7 @@
       + (v === 'graphs' ? graphsHtml() : '')
       + (v === 'archive' ? archiveHtml() : '')
       + (v === 'settings' ? settingsHtml() : '')
-      + switchHtml() + poopHtml() + obsHtml() + deleteHtml() + editHtml() + mismatchHtml()
+      + switchHtml() + sideHtml() + poopHtml() + obsHtml() + deleteHtml() + editHtml() + mismatchHtml()
       + (state.toast ? `<div class="toast">${esc(state.toast)}</div>` : '');
     window.scrollTo(0, winY);
     [...root.querySelectorAll('.full, .modal, .sheet')].forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });

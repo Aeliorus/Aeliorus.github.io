@@ -257,6 +257,8 @@ body.dimmed .dimmable { opacity: .12; }
 .modes button.on { background: var(--eat); color: #2e1c08; }
 .breast-q { font-size: 13px; color: var(--mute); font-weight: 600; text-align: center; }
 .sides { display: flex; gap: 8px; width: 100%; }
+.sides.big { margin-top: 20px; }
+.sides.big .pick { padding: 22px 0; font-size: 17px; }
 .milk-main { display: flex; align-items: center; gap: 6px; }
 .milk-main input { width: 104px; background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px; color: var(--ink); font-family: var(--display); font-weight: 700; font-size: 24px; text-align: center; padding: 8px 6px; outline: none; }
 .presets { display: grid; gap: 6px; width: 100%; }
@@ -269,6 +271,8 @@ body.dimmed .dimmable { opacity: .12; }
 .mbumps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; width: 100%; }
 .mbumps button { border: none; background: rgba(255,177,78,.14); color: var(--eat); border-radius: 9px; padding: 8px 0; font-size: 11px; font-weight: 700; font-family: var(--display); }
 .mbumps button:active { background: rgba(255,177,78,.28); }
+.mbumps.two { grid-template-columns: repeat(2, 1fr); }
+.mbumps.two button { padding: 12px 0; font-size: 15px; }
 .ctas { display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; width: 100%; position: sticky; bottom: 0; padding-top: 14px; padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 44px); background: linear-gradient(to bottom, transparent, var(--bg) 14px); }
 .cta { width: 100%; border: none; background: var(--c); color: var(--ink-on); border-radius: 20px; padding: 17px; font-size: 19px; font-weight: 700; font-family: var(--display); box-shadow: 0 6px 0 var(--shadow); }
 .cta:active { transform: translateY(3px); box-shadow: 0 3px 0 var(--shadow); }
