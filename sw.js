@@ -1,10 +1,10 @@
-﻿// Little Tracker offline cache. Bump CACHE when the shell files change shape.
-const CACHE = 'little-tracker-v7';
+// Little Tracker offline cache. Bump CACHE when the shell files change shape.
+const CACHE = 'little-tracker-v10';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-180.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
@@ -33,7 +33,8 @@ self.addEventListener('fetch', (e) => {
 
   // App files: network first so a redeploy shows up, cache when offline.
   e.respondWith(
-    fetch(req).then(res => {
+    // 'no-cache' = always check with the server (GitHub Pages lets browsers keep files for 10 minutes)
+    fetch(req, { cache: 'no-cache' }).then(res => {
       const copy = res.clone();
       caches.open(CACHE).then(c => c.put(req, copy));
       return res;

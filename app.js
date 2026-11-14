@@ -3,7 +3,7 @@
 
   // ---------- constants ----------
   // state keys saved to localStorage (prefixed "ict_")
-  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault', 'useNap', 'napMin', 'napMax', 'napLimit'];
+  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault', 'useNap', 'napMin', 'napMax', 'napLimit', 'useFeedBar', 'feedMin', 'feedMax', 'feedLimit', 'routineAt', 'nightAt', 'feedCutoff'];
   const THEME = {
     sleep: { c: '#8b93ff', ink: '#16122a', tx: '#aab1ff', shadow: '#4f55b8', dim: 'rgba(139,147,255,.4)', emoji: '🌙' },
     eat: { c: '#ffb14e', ink: '#2e1c08', tx: '#ffc06a', shadow: '#b87a2b', dim: 'rgba(255,177,78,.42)', emoji: '🍼' },
@@ -31,7 +31,15 @@
   ];
   const EAT_COLORS = { bottle: THEME.eat.c, breast: '#ffd9a0' };   // charts: bottle vs breastfeed
   const POOP_SIZES = ['small', 'medium', 'large', 'xl'];
+  // times of day typed in Settings (minutes after midnight)
+  const TIME_FIELDS = {
+    routineAt: { def: 18 * 60 },    // evening routine starts
+    nightAt: { def: 19 * 60 },      // night sleep starts
+    feedCutoff: { def: 17 * 60 }    // no planned feed from this time on (the routine includes it)
+  };
   const DAY = 86400000;
+  const SHORT_NAP_MIN = 35;   // a sleep of 35 min or less ...
+  const SHORT_NAP_CUT = 15;   // ... shortens the next awake time by 15 min
   const ML_PER_OZ = 29.5735;
   const RESUME_WINDOW_MS = 20 * 60000;   // a stopped timer can be resumed for 20 minutes
   // numbers typed in Settings (minutes): default, allowed range and the +/- step of the buttons
@@ -39,16 +47,19 @@
     cdMinutes: { def: 15, min: 1, max: 180, step: 1 },   // sleep countdown length
     napMin: { def: 90, min: 1, max: 600, step: 5 },      // best time before a nap: from
     napMax: { def: 120, min: 1, max: 600, step: 5 },     // best time before a nap: to
-    napLimit: { def: 150, min: 1, max: 600, step: 5 }    // maximum time awake
+    napLimit: { def: 150, min: 1, max: 600, step: 5 },   // maximum time awake
+    feedMin: { def: 120, min: 1, max: 600, step: 5 },    // best time before a feed: from
+    feedMax: { def: 180, min: 1, max: 600, step: 5 },    // best time before a feed: to
+    feedLimit: { def: 210, min: 1, max: 600, step: 5 }   // maximum time since the last feed
   };
 
   const STR = {
     fr: {
       sleeping: 'Dodo', eating: 'Repas', pooping: 'Caca',
-      tapStart: 'Appuyez pour lancer le chrono', tapPoop: 'Appuyez pour enregistrer',
+      tapStart: 'Lancer le chrono', tapPoop: 'Enregistrer',
       noSleep: 'Aucun dodo enregistré.', noEat: 'Aucun repas enregistré.', noPoop: 'Aucun caca enregistré.', noObs: 'Aucune remarque notée.',
       copySleep: 'Copier les dodos', copyEat: 'Copier les repas', copyPoop: 'Copier les cacas', copyObs: 'Copier les remarques', clear: 'Effacer',
-      copyAll: 'Copier toutes les données', deleteAll: 'Tout supprimer',
+      copyAll: 'Copier les données', deleteAll: 'Tout supprimer',
       cancel: 'Annuler', save: 'Enregistrer', edit: 'Modifier',
       dateTime: 'Date et heure', duration: 'Durée', size: 'Taille', milkLabel: 'Lait dans le biberon',
       howBig: 'Quelle taille ?', small: 'Petit', medium: 'Moyen', large: 'Gros', xl: 'Très gros',
@@ -80,7 +91,7 @@
       copied: 'Copié dans le presse-papiers', copyFail: 'Accès au presse-papiers impossible',
       nothingCopy: 'Rien à copier', entryUpdated: 'Entrée mise à jour', badDate: 'Entrez une date et heure valides',
       allDeleted: 'Toutes les données supprimées', cleared: 'Effacé',
-      obs: 'Remarques', obsSub: 'Appuyez pour noter une remarque',
+      obs: 'Remarques', obsSub: 'Noter une remarque',
       obsWhat: 'Que se passe-t-il ?', obsHint: 'Un appui enregistre à l’heure actuelle', obsKind: 'Remarque',
       obsLogged: 'Remarque notée · copiée ✓',
       poopLogged: 'Caca enregistré · copié 💩',
@@ -88,10 +99,19 @@
       feedDefault: 'Type de repas par défaut', feedDefaultHelp: 'Choix présélectionné à l’ouverture d’un nouveau repas ; modifiable à tout moment dans le chrono.',
       breastVolume: 'Volume bu au sein', sideRequired: 'Indiquez le sein pour enregistrer l’allaitement.',
       napSetTitle: 'Temps optimal avant la sieste',
-      napHelp: 'Affiche sur l’accueil une barre qui suit le temps écoulé depuis la fin du dernier dodo : grise avant la durée optimale, verte pendant, orange jusqu’à la limite, puis rouge. Les durées sont en minutes.',
+      napHelp: 'Affiche sur l’accueil une barre qui suit le temps écoulé depuis la fin du dernier dodo : grise avant la durée optimale, verte pendant, orange jusqu’à la limite, puis rouge. Si la dernière sieste a duré 35 min ou moins, tous les jalons sont raccourcis de 15 min. Les durées sont en minutes.',
       napMin: 'Durée optimale min', napMax: 'Durée optimale max', napLimit: 'Limite max',
       napTitle: 'Moment idéal pour le dodo', napEarly: 'Pas encore l’heure', napIdeal: 'C’est le moment !', napLate: 'Il est temps !', napOver: 'Limite dépassée',
       napSleeping: 'Bébé dort', napNone: 'Aucun dodo enregistré', napAwake: (t) => `Éveillé depuis ${t}`,
+      napShortened: (n) => `⚡ Éveil raccourci de ${n} min`, napShortenedWhy: (m) => `éveil raccourci : dernière sieste de ${m} min ou moins`,
+      feedSetTitle: 'Temps optimal avant le repas',
+      feedHelp: 'Affiche sous la barre du dodo une barre qui suit le temps écoulé depuis la fin du dernier repas : grise avant la durée optimale, verte pendant, orange jusqu’à la limite, puis rouge. Les durées sont en minutes.',
+      feedBarTitle: 'Moment idéal pour le repas', feedEating: 'Bébé mange', feedNone: 'Aucun repas enregistré', feedSince: (t) => `Dernier repas il y a ${t}`,
+      planTitle: 'Scénario de la journée', planSleep: 'Dodo', planEat: 'Repas', planPred: 'prévu', planPredLegend: 'Prévu (grisé)',
+      planRoutine: 'Routine du soir', planNight: 'Dodo de nuit', planFrom: (t) => `dès ${t}`,
+      routineSetTitle: 'Routine du soir et dodo de nuit',
+      routineHelp: 'Ces heures bornent le scénario de la journée : un dodo ou un repas prévu qui chevauche la routine ou le dodo de nuit n’est pas affiché. Aucun repas n’est prévu à partir de « Dernier repas hors routine », car le repas fait partie de la routine.',
+      routineAt: 'Début de la routine du soir', nightAt: 'Dodo de nuit', feedCutoff: 'Dernier repas hors routine',
       confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
       startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
       cdAria: (n) => `Compte à rebours de ${n} minutes`,
@@ -122,7 +142,7 @@
     },
     en: {
       sleeping: 'Sleeping', eating: 'Eating', pooping: 'Pooping',
-      tapStart: 'Tap to start the timer', tapPoop: 'Tap to log it right now',
+      tapStart: 'Start the timer', tapPoop: 'Log it now',
       noSleep: 'No sleeps logged yet.', noEat: 'No feeds logged yet.', noPoop: 'No poops logged yet.', noObs: 'No remarks logged yet.',
       copySleep: 'Copy sleep data', copyEat: 'Copy feed data', copyPoop: 'Copy poop data', copyObs: 'Copy notes', clear: 'Clear',
       copyAll: 'Copy all data', deleteAll: 'Delete all data',
@@ -157,7 +177,7 @@
       copied: 'Copied to clipboard', copyFail: 'Couldn’t access clipboard',
       nothingCopy: 'Nothing to copy', entryUpdated: 'Entry updated', badDate: 'Enter a valid date & time',
       allDeleted: 'All data deleted', cleared: 'Cleared',
-      obs: 'Notes', obsSub: 'Tap to log a remark',
+      obs: 'Notes', obsSub: 'Log a remark',
       obsWhat: 'What’s happening?', obsHint: 'One tap logs it at the current time', obsKind: 'Remark',
       obsLogged: 'Note logged · copied ✓',
       poopLogged: 'Poop logged · copied 💩',
@@ -165,10 +185,19 @@
       feedDefault: 'Default feed type', feedDefaultHelp: 'Preselected when a new feed is opened; can still be changed at any time in the timer.',
       breastVolume: 'Volume drunk at the breast', sideRequired: 'Pick the side to save the breastfeed.',
       napSetTitle: 'Best time before a nap',
-      napHelp: 'Shows a bar on the home screen that follows the time since the last sleep ended: grey before the best time, green during it, orange up to the limit, then red. Durations are in minutes.',
+      napHelp: 'Shows a bar on the home screen that follows the time since the last sleep ended: grey before the best time, green during it, orange up to the limit, then red. If the last sleep lasted 35 min or less, every milestone is 15 min earlier. Durations are in minutes.',
       napMin: 'Best time from (min)', napMax: 'Best time to (min)', napLimit: 'Maximum limit (min)',
       napTitle: 'Best time for sleep', napEarly: 'Not yet', napIdeal: 'Now is the time!', napLate: 'Getting late', napOver: 'Limit passed',
       napSleeping: 'Baby is asleep', napNone: 'No sleep logged yet', napAwake: (t) => `Awake for ${t}`,
+      napShortened: (n) => `⚡ Awake time cut by ${n} min`, napShortenedWhy: (m) => `awake time cut: last sleep was ${m} min or less`,
+      feedSetTitle: 'Best time before a feed',
+      feedHelp: 'Shows a bar under the sleep bar that follows the time since the last feed ended: grey before the best time, green during it, orange up to the limit, then red. Durations are in minutes.',
+      feedBarTitle: 'Best time for a feed', feedEating: 'Baby is feeding', feedNone: 'No feed logged yet', feedSince: (t) => `Last feed ${t} ago`,
+      planTitle: 'Day plan', planSleep: 'Sleep', planEat: 'Feed', planPred: 'planned', planPredLegend: 'Planned (greyed)',
+      planRoutine: 'Evening routine', planNight: 'Night sleep', planFrom: (t) => `from ${t}`,
+      routineSetTitle: 'Evening routine and night sleep',
+      routineHelp: 'These times frame the day plan: a planned sleep or feed that overlaps the routine or the night sleep is not shown. No feed is planned from “Last feed outside the routine” on, because the feed is part of the routine.',
+      routineAt: 'Evening routine starts', nightAt: 'Night sleep starts', feedCutoff: 'Last feed outside the routine',
       confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
       startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
       cdAria: (n) => `${n} minute countdown`,
@@ -224,6 +253,13 @@
     napMin: loadJson('napMin', NUM_FIELDS.napMin.def),
     napMax: loadJson('napMax', NUM_FIELDS.napMax.def),
     napLimit: loadJson('napLimit', NUM_FIELDS.napLimit.def),
+    useFeedBar: loadJson('useFeedBar', true),     // "best time for a feed" bar on the home screen
+    feedMin: loadJson('feedMin', NUM_FIELDS.feedMin.def),
+    feedMax: loadJson('feedMax', NUM_FIELDS.feedMax.def),
+    feedLimit: loadJson('feedLimit', NUM_FIELDS.feedLimit.def),
+    routineAt: loadJson('routineAt', TIME_FIELDS.routineAt.def),
+    nightAt: loadJson('nightAt', TIME_FIELDS.nightAt.def),
+    feedCutoff: loadJson('feedCutoff', TIME_FIELDS.feedCutoff.def),
     feedDefault: load('feedDefault', 'bottle'),   // what a new feed timer starts on: 'bottle' or 'breast'
     panel: null, mismatchPrompt: false,
     anomalyOn: false, anomalyKind: null, anomalyNote: '',
@@ -243,9 +279,10 @@
       if (t && t.trueStartedAt) { t.startedAt = t.trueStartedAt; delete t.trueStartedAt; }
     });
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
-    if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings'].includes(state.view)) state.view = 'home';
-    ['durLink', 'useCons', 'useCountdown', 'useNap'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
+    if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings', 'plan'].includes(state.view)) state.view = 'home';
+    ['durLink', 'useCons', 'useCountdown', 'useNap', 'useFeedBar'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
     if (!['bottle', 'breast'].includes(state.feedDefault)) state.feedDefault = 'bottle';
+    Object.entries(TIME_FIELDS).forEach(([k, f]) => { if (!Number.isInteger(state[k]) || state[k] < 0 || state[k] > 1439) state[k] = f.def; });
     Object.entries(NUM_FIELDS).forEach(([k, f]) => { if (!(state[k] >= f.min && state[k] <= f.max)) state[k] = f.def; });
     // breastfeed volumes used to be guessed from the duration; they were too inaccurate, so drop them
     const dropGuess = (e) => { if (e && e.estimated) { const c = { ...e }; delete c.milk; delete c.estimated; return c; } return e; };
@@ -568,6 +605,7 @@
     showToast(t === 'all' ? L().allDeleted : L().cleared);
   };
 
+  let planScroll = false;   // set when the plan opens: scroll it so "now" is visible
   const A = {
     setLang: (v) => set({ lang: v }),
     openSettings: () => set({ view: 'settings' }),
@@ -583,7 +621,9 @@
     },
     // +/- buttons of a numeric setting; v = "key:delta"
     numBump: (v) => { const [k, d] = v.split(':'), f = NUM_FIELDS[k]; set({ [k]: Math.min(f.max, Math.max(f.min, state[k] + (+d))) }); },
+    openPlan: () => { planScroll = true; set({ view: 'plan' }); },
     toggleNap: () => set({ useNap: !state.useNap }),
+    toggleFeedBar: () => set({ useFeedBar: !state.useFeedBar }),
     toggleCountdown: () => set({ useCountdown: !state.useCountdown }),
     // collapsible timer panels: toggled in place (no re-render) so the CSS transition can animate
     panel: (v) => {
@@ -727,58 +767,187 @@
   Object.keys(NUM_FIELDS).forEach(k => {
     INPUTS['num_' + k] = (v) => { const n = parseInt(v, 10), f = NUM_FIELDS[k]; if (n >= f.min && n <= f.max) { state[k] = n; save(); } };
   });
+  Object.keys(TIME_FIELDS).forEach(k => {
+    INPUTS['time_' + k] = (v) => { const t = /^(\d{1,2}):(\d{2})$/.exec(v); if (t) { state[k] = +t[1] * 60 + +t[2]; save(); } };
+  });
   ['durH', 'durM', 'durS'].forEach(k => {
     INPUTS['edit_' + k] = (v, root) => { patchDraft({ [k]: v }); followEnd(root); };
   });
 
-  // ---------- best time for a nap ----------
-  // Time awake = time since the end of the last sleep. Four zones on the bar: grey (too early), green (best
-  // time), orange (getting late) and red (past the limit); the bar ends a bit after the limit.
-  const napCfg = () => {
-    const min = state.napMin, max = Math.max(min, state.napMax), limit = Math.max(max, state.napLimit);
-    return { min, max, limit, total: limit + Math.max(10, Math.round(limit * 0.25)) };
+  // ---------- "best time" bars on the home screen (sleep and feed) ----------
+  // The cursor follows the time since the end of the last sleep / feed. Four zones: grey (too early), green
+  // (best time), orange (getting late), red (past the limit); the bar ends a bit after the limit.
+  // Sleep only: if the last sleep lasted SHORT_NAP_MIN minutes or less, every milestone is SHORT_NAP_CUT min earlier.
+  const GAUGES = {
+    nap: { type: 'sleep', on: 'useNap', keys: ['napMin', 'napMax', 'napLimit'], emoji: '😴', title: 'napTitle', none: 'napNone', busy: 'napSleeping', since: 'napAwake' },
+    feed: { type: 'eat', on: 'useFeedBar', keys: ['feedMin', 'feedMax', 'feedLimit'], emoji: '🍼', title: 'feedBarTitle', none: 'feedNone', busy: 'feedEating', since: 'feedSince' }
   };
-  const lastSleepEnd = () => state.archive.reduce((m, e) => (e.type === 'sleep' ? Math.max(m, entryEnd(e)) : m), 0);
-  const napStatus = () => {
-    const c = napCfg();
-    if (isStarted('sleep')) return { c, sleeping: true };
-    const last = lastSleepEnd();
+  const lastEntry = (type) => state.archive.reduce((best, e) => (e.type === type && (!best || entryEnd(e) > entryEnd(best)) ? e : best), null);
+  // milestones (minutes) of a bar; lastDurSec = duration of the previous sleep (null if none)
+  const gaugeCfg = (kind, lastDurSec) => {
+    const g = GAUGES[kind];
+    let [min, max, limit] = g.keys.map(k => state[k]);
+    max = Math.max(min, max); limit = Math.max(max, limit);
+    const shortened = kind === 'nap' && lastDurSec != null && lastDurSec <= SHORT_NAP_MIN * 60;
+    if (shortened) { min = Math.max(1, min - SHORT_NAP_CUT); max = Math.max(min, max - SHORT_NAP_CUT); limit = Math.max(max, limit - SHORT_NAP_CUT); }
+    return { min, max, limit, shortened, total: limit + Math.max(10, Math.round(limit * 0.25)) };
+  };
+  const gaugeStatus = (kind) => {
+    const g = GAUGES[kind], last = lastEntry(g.type);
+    const c = gaugeCfg(kind, last ? last.duration || 0 : null);
+    if (isStarted(g.type)) return { c, busy: true };
     if (!last) return { c, none: true };
-    const mins = Math.max(0, (Date.now() - last) / 60000);
-    return { c, mins, pct: Math.min(100, (mins / c.total) * 100), zone: mins < c.min ? 'early' : mins < c.max ? 'ideal' : mins < c.limit ? 'late' : 'over' };
+    const mins = Math.max(0, (Date.now() - entryEnd(last)) / 60000);
+    return { c, shortened: c.shortened, mins, pct: Math.min(100, (mins / c.total) * 100), zone: mins < c.min ? 'early' : mins < c.max ? 'ideal' : mins < c.limit ? 'late' : 'over' };
   };
-  const napDur = (m) => (m < 60 ? `${Math.floor(m)} min` : `${Math.floor(m / 60)}h${pad(Math.floor(m % 60))}`);
-  const napTexts = (st) => {
-    const l = L();
-    if (st.sleeping) return { zone: 'sleeping', status: l.napSleeping, awake: '' };
-    if (st.none) return { zone: 'none', status: l.napNone, awake: '' };
-    return { zone: st.zone, status: { early: l.napEarly, ideal: l.napIdeal, late: l.napLate, over: l.napOver }[st.zone], awake: l.napAwake(napDur(st.mins)) };
+  const gaugeDur = (m) => (m < 60 ? `${Math.floor(m)} min` : `${Math.floor(m / 60)}h${pad(Math.floor(m % 60))}`);
+  const gaugeTexts = (kind, st) => {
+    const l = L(), g = GAUGES[kind];
+    if (st.busy) return { zone: 'busy', status: l[g.busy], since: '', note: '' };
+    if (st.none) return { zone: 'none', status: l[g.none], since: '', note: '' };
+    return { zone: st.zone, status: { early: l.napEarly, ideal: l.napIdeal, late: l.napLate, over: l.napOver }[st.zone], since: l[g.since](gaugeDur(st.mins)), note: st.shortened ? l.napShortened(SHORT_NAP_CUT) : '' };
   };
-  const napHtml = () => {
-    if (!state.useNap) return '';
-    const l = L(), st = napStatus(), c = st.c, t = napTexts(st);
+  const gaugeHtml = (kind) => {
+    const g = GAUGES[kind];
+    if (!state[g.on]) return '';
+    const l = L(), st = gaugeStatus(kind), c = st.c, t = gaugeTexts(kind, st);
     const pc = (m) => `${(m / c.total) * 100}%`;
     const zones = [['early', c.min], ['ideal', c.max - c.min], ['late', c.limit - c.max], ['over', c.total - c.limit]]
       .map(([z, m]) => `<i class="z-${z}" style="width:${pc(m)}"></i>`).join('');
-    const ticks = [c.min, c.max, c.limit].map(m => `<span style="left:${pc(m)}">${napDur(m)}</span>`).join('');
-    return `<div class="nap" role="img" aria-label="${esc(l.napTitle + ' · ' + t.status + (t.awake ? ' · ' + t.awake : ''))}">
-      <div class="nap-top"><span class="nap-title">😴 ${l.napTitle}</span><span class="nap-status zone-${t.zone}">${esc(t.status)}</span></div>
-      <div class="nap-bar"><div class="nap-track">${zones}</div><b class="nap-cursor" style="left:${st.pct == null ? 0 : st.pct}%"${st.pct == null ? ' hidden' : ''}></b></div>
-      <div class="nap-ticks">${ticks}</div>
-      <div class="nap-awake">${esc(t.awake)}</div>
+    const ticks = [c.min, c.max, c.limit].map(m => `<span style="left:${pc(m)}">${gaugeDur(m)}</span>`).join('');
+    return `<div class="gauge" data-kind="${kind}">
+      <div class="gauge-top"><span class="gauge-title">${g.emoji} ${l[g.title]}</span><span class="gauge-status zone-${t.zone}">${esc(t.status)}</span></div>
+      <div class="gauge-bar"><div class="gauge-track">${zones}</div><b class="gauge-cursor" style="left:${st.pct == null ? 0 : st.pct}%"${st.pct == null ? ' hidden' : ''}></b></div>
+      <div class="gauge-ticks">${ticks}</div>
+      <div class="gauge-foot"><span class="gauge-since">${esc(t.since)}</span><span class="gauge-note">${esc(t.note)}</span></div>
     </div>`;
   };
-  // refresh the cursor and texts every second without redrawing the screen
-  const updateNap = () => {
-    const el = root.querySelector('.nap');
-    if (!el) return;
-    const st = napStatus(), t = napTexts(st), cur = el.querySelector('.nap-cursor');
-    cur.hidden = st.pct == null;
-    if (st.pct != null) cur.style.left = st.pct + '%';
-    const status = el.querySelector('.nap-status'), awake = el.querySelector('.nap-awake');
-    status.className = 'nap-status zone-' + t.zone;
-    if (status.textContent !== t.status) status.textContent = t.status;
-    if (awake.textContent !== t.awake) awake.textContent = t.awake;
+  // both bars share one card; tapping it opens the day's plan
+  const gaugesHtml = () => {
+    const kinds = Object.keys(GAUGES).filter(k => state[GAUGES[k].on]);
+    if (!kinds.length) return '';
+    const l = L();
+    const summary = kinds.map(k => { const t = gaugeTexts(k, gaugeStatus(k)); return [l[GAUGES[k].title], t.status, t.since, t.note && l.napShortenedWhy(SHORT_NAP_MIN)].filter(Boolean).join(' · '); });
+    return `<div class="gauges" role="button" tabindex="0" ${attr('openPlan')} aria-label="${esc([l.planTitle, ...summary].join(' — '))}">${kinds.map(gaugeHtml).join('')}<span class="gauges-go" aria-hidden="true">›</span></div>`;
+  };
+  // refresh cursors and texts every second without redrawing the screen
+  const updateGauges = () => {
+    root.querySelectorAll('.gauge').forEach(el => {
+      const kind = el.dataset.kind, st = gaugeStatus(kind), t = gaugeTexts(kind, st), cur = el.querySelector('.gauge-cursor');
+      cur.hidden = st.pct == null;
+      if (st.pct != null) cur.style.left = st.pct + '%';
+      const setText = (sel, v) => { const n = el.querySelector(sel); if (n.textContent !== v) n.textContent = v; };
+      el.querySelector('.gauge-status').className = 'gauge-status zone-' + t.zone;
+      setText('.gauge-status', t.status); setText('.gauge-since', t.since); setText('.gauge-note', t.note);
+    });
+  };
+
+  // ---------- the day's plan ("frise") ----------
+  // Actual sleeps and feeds of the day plus planned ones. A planned sleep / feed is placed in the middle of the
+  // green zone after the previous one; its length is the average of past ones starting around the same time of day.
+  // Nothing planned overlaps the evening routine or the night sleep; a feed planned during a sleep moves to just
+  // after it; no feed is planned from the "last feed outside the routine" time on.
+  const PLAN_PX_PER_MIN = 1.5;
+  const PLAN_FALLBACK_MIN = { sleep: 60, eat: 20 };   // used when there is no history yet
+  const minutesOfDay = (ts) => { const d = new Date(ts); return d.getHours() * 60 + d.getMinutes(); };
+  const avgDuration = (type, at) => {
+    const since = Date.now() - 14 * DAY;
+    // night sleeps (4 h and more) and empty entries do not count
+    const all = state.archive.filter(e => e.type === type && e.timestamp >= since && (e.duration || 0) >= 60 && (type !== 'sleep' || e.duration < 4 * 3600));
+    const m = minutesOfDay(at);
+    const near = all.filter(e => { const d = Math.abs(minutesOfDay(e.timestamp) - m); return Math.min(d, 1440 - d) <= 60; });
+    const pool = near.length ? near : all;
+    return (pool.length ? pool.reduce((a, e) => a + e.duration, 0) / pool.length : PLAN_FALLBACK_MIN[type] * 60) * 1000;
+  };
+  const planModel = () => {
+    const now = Date.now(), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+    const day0 = t0.getTime(), at = (m) => day0 + m * 60000;
+    const routineTs = at(state.routineAt), nightTs = Math.max(at(state.nightAt), routineTs + 15 * 60000), cutTs = at(state.feedCutoff);
+    // actual entries (a resumed entry is replaced by its running timer)
+    const running = ['sleep', 'eat'].map(type => state.timers[type]).filter(t => t && t.startedAt);
+    const items = state.archive
+      .filter(e => (e.type === 'sleep' || e.type === 'eat') && entryEnd(e) > day0 && e.timestamp < day0 + DAY && !running.some(t => t.resumedId === e.id))
+      .map(e => ({ type: e.type, start: e.timestamp, end: entryEnd(e), pred: false, e }));
+    running.forEach(t => items.push({ type: t.type, start: t.startedAt, end: now, pred: false, e: { breast: t.breast, side: t.side, milk: t.milk, unit: state.unit, mode: t.mode } }));
+    // the frise starts when the night sleep ended (else at the first entry of the day, else now)
+    const night = state.archive.filter(e => e.type === 'sleep' && e.timestamp < day0 + 6 * 3600000 && entryEnd(e) > day0).sort((a, b) => entryEnd(b) - entryEnd(a))[0];
+    let origin = night ? entryEnd(night) : Math.min(now, ...items.filter(i => i.start >= day0).map(i => i.start));
+    origin = Math.min(origin, routineTs - 3600000);
+    const hour = 3600000, axisStart = Math.floor(origin / hour) * hour, axisEnd = Math.ceil((nightTs + hour) / hour) * hour;
+    // ---- planned sleeps (only if the sleep bar is on)
+    const planned = [];
+    const lastOf = (type) => { const t = state.timers[type]; return t && t.startedAt ? { end: Math.max(now, t.startedAt + avgDuration(type, t.startedAt)), dur: null, from: t.startedAt } : (() => { const l = lastEntry(type); return l ? { end: entryEnd(l), dur: l.duration || 0 } : null; })(); };
+    const mid = (c) => ((c.min + c.max) / 2) * 60000;
+    const naps = [];
+    if (state.useNap) {
+      let b = lastOf('sleep');
+      if (b) {
+        let durSec = b.dur != null ? b.dur : (b.end - b.from) / 1000;
+        if (b.from != null && b.end > now) naps.push({ type: 'sleep', start: now, end: b.end, pred: true, rest: true });   // rest of the sleep in progress
+        for (let i = 0; i < 6; i++) {
+          const start = Math.max(b.end + mid(gaugeCfg('nap', durSec)), now), end = start + avgDuration('sleep', start);
+          if (end > routineTs) break;                       // overlaps the routine / night sleep: not shown
+          naps.push({ type: 'sleep', start, end, pred: true });
+          b = { end }; durSec = (end - start) / 1000;
+        }
+      }
+    }
+    planned.push(...naps);
+    // ---- planned feeds (only if the feed bar is on)
+    if (state.useFeedBar) {
+      let b = lastOf('eat');
+      if (b) {
+        if (b.from != null && b.end > now) planned.push({ type: 'eat', start: now, end: b.end, pred: true, rest: true });
+        const sleeps = [...items.filter(i => i.type === 'sleep' && i.end > now), ...naps].map(i => ({ start: i.start, end: Math.max(i.end, now) }));
+        for (let i = 0; i < 10; i++) {
+          let start = Math.max(b.end + mid(gaugeCfg('feed', null)), now), end;
+          for (let k = 0; k < 10; k++) {                    // a feed planned during a sleep moves to just after it
+            end = start + avgDuration('eat', start);
+            const hit = sleeps.find(z => z.start < end && z.end > start);
+            if (!hit) break;
+            start = hit.end;
+          }
+          if (start >= cutTs || end > routineTs) break;     // the routine includes the feed
+          planned.push({ type: 'eat', start, end, pred: true });
+          b = { end };
+        }
+      }
+    }
+    const all = [...items, ...planned].filter(i => i.end > axisStart && i.start < axisEnd);
+    return { now, axisStart, axisEnd, routineTs, nightTs, items: all };
+  };
+  const planHtml = () => {
+    const l = L(), m = planModel(), px = PLAN_PX_PER_MIN;
+    const y = (ts) => ((ts - m.axisStart) / 60000) * px;
+    const hours = [];
+    for (let t = m.axisStart; t <= m.axisEnd; t += 3600000) hours.push(t);
+    const axis = hours.map(t => `<span style="top:${y(t)}px">${pad(new Date(t).getHours())}:00</span>`).join('');
+    const lines = hours.map(t => `<i class="plan-hl" style="top:${y(t)}px"></i>`).join('');
+    const range = (a, b) => `${clockTime(a)}–${clockTime(b)}`;
+    const span = (cls, from, to, label) => `<div class="plan-span ${cls}" style="top:${y(from)}px;height:${y(to) - y(from)}px"><b>${label}</b></div>`;
+    const spans = span('routine', m.routineTs, m.nightTs, `🛁 ${l.planRoutine} · ${range(m.routineTs, m.nightTs)}`) + span('night', m.nightTs, m.axisEnd, `🌙 ${l.planNight} · ${l.planFrom(clockTime(m.nightTs))}`);
+    const label = (i) => {
+      const e = i.e, th = i.type === 'sleep' ? '🌙' : '🍼';
+      if (i.type === 'sleep') return `${th} ${e && e.mode ? sleepModeLabel(e.mode) : l.planSleep}`;
+      if (e && e.breast) return `🤱 ${sideLabel(e.side) || l.breastfeeding}${e.milk ? ` · ${e.milk} ${e.unit || 'ml'}` : ''}`;
+      return `${th} ${e && e.milk ? `${e.milk} ${e.unit || 'ml'}` : l.planEat}`;
+    };
+    const block = (i) => {
+      const start = Math.max(i.start, m.axisStart), top = y(start), h = Math.max(26, y(Math.min(i.end, m.axisEnd)) - top);
+      const r = range(i.start, i.end), tall = h >= 42;
+      return `<div class="plan-blk ${i.type}${i.pred ? ' pred' : ''}" style="top:${top}px;height:${h}px" title="${esc(label(i) + ' · ' + r)}">${tall ? `<b>${esc(label(i))}</b><span>${r}${i.pred ? ' · ' + l.planPred : ''}</span>` : `<span>${label(i).split(' ')[0]} ${r}${i.pred ? ' · ' + l.planPred : ''}</span>`}</div>`;
+    };
+    const col = (type) => m.items.filter(i => i.type === type).map(block).join('');
+    const nowLine = m.now >= m.axisStart && m.now <= m.axisEnd ? `<div class="plan-now" style="top:${y(m.now)}px"><span>${clockTime(m.now)}</span></div>` : '';
+    return `<div class="full graphs"><div class="full-in">
+      ${pageBar(l.planTitle)}
+      <div class="plan-legend"><span><i class="lg-sleep"></i>${l.planSleep}</span><span><i class="lg-eat"></i>${l.planEat}</span><span><i class="lg-pred"></i>${l.planPredLegend}</span></div>
+      <div class="plan-heads"><span></span><span>🌙 ${l.planSleep}</span><span>🍼 ${l.planEat}</span></div>
+      <div class="plan" style="height:${y(m.axisEnd)}px">
+        <div class="plan-axis">${axis}</div>
+        <div class="plan-area">${lines}${spans}<div class="plan-cols"><div class="plan-col">${col('sleep')}</div><div class="plan-col">${col('eat')}</div></div>${nowLine}</div>
+      </div>
+    </div></div>`;
   };
 
   // ---------- views ----------
@@ -808,7 +977,7 @@
         <div class="row-text">
           <span class="row-main${big ? ' big' : ''}">${esc(main)}</span>
           <span class="row-line">${esc(line)}</span>
-          <span class="row-date">${esc(dateOf(e.timestamp))}</span>${anom}
+          <span class="row-meta"><span class="row-date">${esc(dateOf(e.timestamp))}</span>${anom}</span>
         </div>
         <div class="row-side"><button class="edit-btn" aria-label="Edit" ${attr('edit', e.id)}>✎</button>${resume}</div>
       </div></div>`;
@@ -832,8 +1001,7 @@
     const footAria = open ? l.less : (more === 0 ? l.showActions : l.showMore(more));
     return `<div class="card${open ? ' wide' : ''}" style="${themeVars(th)}">
       <button class="card-main" ${attr(cfg.act)}>
-        <span class="card-top"><span class="card-dot">${th.emoji}</span><span class="card-arrow">${cfg.arrow}</span></span>
-        <span class="card-title">${esc(cfg.title)}</span>
+        <span class="card-top"><span class="card-dot">${th.emoji}</span><span class="card-title">${esc(cfg.title)}</span><span class="card-arrow">${cfg.arrow}</span></span>
         <span class="card-sub" data-live="${type}">${esc(sub)}</span>
       </button>
       ${rows.length === 0 ? `<div class="empty">${cfg.empty}</div>` : ''}
@@ -880,7 +1048,7 @@
           <button class="icon-btn" aria-label="${esc(l.settings)}" ${attr('openSettings')}>${ICON.gear}</button>
         </div>
       </div>
-      ${napHtml()}
+      ${gaugesHtml()}
       <div class="grid">${TYPES.map(cardHtml).join('')}</div>
       <div class="bottom">
         <button class="btn-ghost" ${attr('copyAll')}>${l.copyAll}</button>
@@ -1307,6 +1475,9 @@
           <button class="switch${state[key] ? ' on' : ''}" role="switch" aria-checked="${state[key]}" aria-label="${esc(title)}" ${attr(act)}><i></i></button></div>
         <div class="set-help">${help}</div>${extra}
       </div>`;
+    // a time-of-day field
+    const timeRow = (key, label) => `<div class="set-num"><span>${label}</span>
+          <div class="num-ctl"><input class="time-in" type="time" data-i="time_${key}" id="time_${key}" value="${pad(Math.floor(state[key] / 60))}:${pad(state[key] % 60)}" aria-label="${esc(label)}"></div></div>`;
     // a minutes field with - / + buttons
     const numRow = (key, label) => {
       const f = NUM_FIELDS[key];
@@ -1322,6 +1493,12 @@
       ${toggleCard(l.consTitle, 'useCons', 'toggleCons', l.consHelp)}
       ${toggleCard(l.cdTitle, 'useCountdown', 'toggleCountdown', l.cdHelp, state.useCountdown ? numRow('cdMinutes', l.cdLength) : '')}
       ${toggleCard(l.napSetTitle, 'useNap', 'toggleNap', l.napHelp, state.useNap ? numRow('napMin', l.napMin) + numRow('napMax', l.napMax) + numRow('napLimit', l.napLimit) : '')}
+      ${toggleCard(l.feedSetTitle, 'useFeedBar', 'toggleFeedBar', l.feedHelp, state.useFeedBar ? numRow('feedMin', l.napMin) + numRow('feedMax', l.napMax) + numRow('feedLimit', l.napLimit) : '')}
+      <div class="panel plain set-card">
+        <div class="set-title">${l.routineSetTitle}</div>
+        <div class="set-help">${l.routineHelp}</div>
+        ${timeRow('routineAt', l.routineAt)}${timeRow('nightAt', l.nightAt)}${timeRow('feedCutoff', l.feedCutoff)}
+      </div>
     </div></div>`;
   };
 
@@ -1340,6 +1517,51 @@
       </div>`);
   };
 
+  // ---------- Android back button ----------
+  // Every page after the home screen, and every popup, gets a browser-history entry. The phone's back button
+  // then goes back one step inside the app and only leaves the app from the home screen.
+  let navStack = [];          // levels above the home screen: { view, overlay }
+  let navPending = [];        // entries to push once a programmatic "back" has finished
+  let navPopping = false;     // a programmatic "back" is under way
+  const overlayOpen = () => !!(state.poopPicker || state.obsPicker || state.switchPrompt != null || state.sidePrompt || state.deleteTarget != null || state.editDraft);
+  const closeOverlays = () => Object.assign(state, { poopPicker: false, poopSel: emptyPoopSel(), anomalyOn: false, anomalyKind: null, anomalyNote: '', obsPicker: false, switchPrompt: null, sidePrompt: null, deleteTarget: null, editDraft: null, mismatchPrompt: false });
+  const viewAvailable = (v) => ['home', 'graphs', 'archive', 'settings', 'plan'].includes(v) || ((v === 'sleep' || v === 'eat') && !!state.timers[v]);
+  const sameLevel = (a, b) => a.view === b.view && !!a.overlay === !!b.overlay;
+  // the history the current screen needs
+  const navWanted = () => {
+    const v = state.view, base = navStack.filter(l => !l.overlay);
+    const pages = v === 'home' ? [] : base.length && base[base.length - 1].view === v ? base : [...base, { view: v }];
+    return overlayOpen() ? [...pages, { view: v, overlay: true }] : pages;
+  };
+  const pushLevels = (levels) => levels.forEach(l => { navStack.push(l); try { history.pushState({ depth: navStack.length }, ''); } catch (e) {} });
+  function syncHistory() {
+    if (navPopping) return;
+    const want = navWanted();
+    let k = 0;
+    while (k < navStack.length && k < want.length && sameLevel(navStack[k], want[k])) k++;
+    const pops = navStack.length - k, pushes = want.slice(k);
+    navStack = navStack.slice(0, k);
+    if (pops > 0) { navPending = pushes; navPopping = true; try { history.go(-pops); } catch (e) { navPopping = false; } }
+    else pushLevels(pushes);
+  }
+  window.addEventListener('popstate', (ev) => {
+    if (navPopping) {                       // our own "back" finished: add what was waiting
+      navPopping = false;
+      pushLevels(navPending); navPending = [];
+      return;
+    }
+    // the phone's back button: go up one level
+    const n = ev.state && typeof ev.state.depth === 'number' ? ev.state.depth : 0;
+    const wasOverlay = navStack.length > 0 && !!navStack[navStack.length - 1].overlay;
+    navStack = navStack.slice(0, Math.min(n, navStack.length));
+    const top = navStack[navStack.length - 1];
+    if (wasOverlay && !(top && top.overlay)) closeOverlays();
+    const view = top ? top.view : 'home';
+    if (view !== state.view) state.panel = null;
+    state.view = viewAvailable(view) ? view : 'home';
+    set({});
+  });
+
   // ---------- render ----------
   const root = document.getElementById('app');
   function render() {
@@ -1353,16 +1575,23 @@
       + (v === 'graphs' ? graphsHtml() : '')
       + (v === 'archive' ? archiveHtml() : '')
       + (v === 'settings' ? settingsHtml() : '')
+      + (v === 'plan' ? planHtml() : '')
       + switchHtml() + sideHtml() + poopHtml() + obsHtml() + deleteHtml() + editHtml() + mismatchHtml()
       + (state.toast ? `<div class="toast">${esc(state.toast)}</div>` : '');
     window.scrollTo(0, winY);
     [...root.querySelectorAll('.full, .modal, .sheet')].forEach((el, i) => { if (scrolls[i]) el.scrollTop = scrolls[i]; });
+    if (planScroll && v === 'plan') {
+      const f = root.querySelector('.full'), n = root.querySelector('.plan-now');
+      if (f && n) f.scrollTop = Math.max(0, n.getBoundingClientRect().top - f.getBoundingClientRect().top + f.scrollTop - f.clientHeight / 3);
+      planScroll = false;
+    }
     if (focus) {
       const el = document.getElementById(focus.id);
       if (el) { el.focus(); try { el.setSelectionRange(focus.s, focus.e); } catch (e) {} }
     }
     syncWakeLock();
     syncIdle();
+    syncHistory();
   }
 
   // Dim everything except the running clock after a minute without touch while a feed timer runs.
@@ -1411,7 +1640,7 @@
   setInterval(() => {
     const live = (k, v) => root.querySelectorAll(`[data-live="${k}"]`).forEach(el => { if (el.textContent !== v) el.textContent = v; });
     checkCountdown();
-    updateNap();
+    updateGauges();
     const cdl = countdownLeft();
     if (cdl != null) {
       live('sleep', cdSub(state.timers.sleep));
@@ -1438,6 +1667,10 @@
     if (el.dataset.self && ev.target !== el) return;
     const fn = A[el.dataset.a];
     if (fn) fn(el.dataset.v);
+  });
+  // role="button" elements (the bars card) answer to Enter and Space like a button
+  root.addEventListener('keydown', (ev) => {
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   });
   root.addEventListener('input', (ev) => {
     const k = ev.target.dataset && ev.target.dataset.i;
@@ -1473,5 +1706,13 @@
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    // a new version took over: reload once so its files are used right away (not on the very first install)
+    const hadWorker = !!navigator.serviceWorker.controller;
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadWorker || reloaded) return;
+      reloaded = true;
+      location.reload();
+    });
   }
 })();
