@@ -3,7 +3,7 @@
 
   // ---------- constants ----------
   // state keys saved to localStorage (prefixed "ict_")
-  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault'];
+  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault', 'useNap', 'napMin', 'napMax', 'napLimit'];
   const THEME = {
     sleep: { c: '#8b93ff', ink: '#16122a', tx: '#aab1ff', shadow: '#4f55b8', dim: 'rgba(139,147,255,.4)', emoji: '🌙' },
     eat: { c: '#ffb14e', ink: '#2e1c08', tx: '#ffc06a', shadow: '#b87a2b', dim: 'rgba(255,177,78,.42)', emoji: '🍼' },
@@ -34,7 +34,13 @@
   const DAY = 86400000;
   const ML_PER_OZ = 29.5735;
   const RESUME_WINDOW_MS = 20 * 60000;   // a stopped timer can be resumed for 20 minutes
-  const MAX_COUNTDOWN_MIN = 180;
+  // numbers typed in Settings (minutes): default, allowed range and the +/- step of the buttons
+  const NUM_FIELDS = {
+    cdMinutes: { def: 15, min: 1, max: 180, step: 1 },   // sleep countdown length
+    napMin: { def: 90, min: 1, max: 600, step: 5 },      // best time before a nap: from
+    napMax: { def: 120, min: 1, max: 600, step: 5 },     // best time before a nap: to
+    napLimit: { def: 150, min: 1, max: 600, step: 5 }    // maximum time awake
+  };
 
   const STR = {
     fr: {
@@ -81,6 +87,11 @@
       allEntries: 'Toutes les entrées', actions: 'Actions', less: 'Réduire', showActions: 'Afficher les actions',
       feedDefault: 'Type de repas par défaut', feedDefaultHelp: 'Choix présélectionné à l’ouverture d’un nouveau repas ; modifiable à tout moment dans le chrono.',
       breastVolume: 'Volume bu au sein', sideRequired: 'Indiquez le sein pour enregistrer l’allaitement.',
+      napSetTitle: 'Temps optimal avant la sieste',
+      napHelp: 'Affiche sur l’accueil une barre qui suit le temps écoulé depuis la fin du dernier dodo : grise avant la durée optimale, verte pendant, orange jusqu’à la limite, puis rouge. Les durées sont en minutes.',
+      napMin: 'Durée optimale min', napMax: 'Durée optimale max', napLimit: 'Limite max',
+      napTitle: 'Moment idéal pour le dodo', napEarly: 'Pas encore l’heure', napIdeal: 'C’est le moment !', napLate: 'Il est temps !', napOver: 'Limite dépassée',
+      napSleeping: 'Bébé dort', napNone: 'Aucun dodo enregistré', napAwake: (t) => `Éveillé depuis ${t}`,
       confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
       startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
       cdAria: (n) => `Compte à rebours de ${n} minutes`,
@@ -153,6 +164,11 @@
       allEntries: 'All entries', actions: 'Actions', less: 'Show less', showActions: 'Show actions',
       feedDefault: 'Default feed type', feedDefaultHelp: 'Preselected when a new feed is opened; can still be changed at any time in the timer.',
       breastVolume: 'Volume drunk at the breast', sideRequired: 'Pick the side to save the breastfeed.',
+      napSetTitle: 'Best time before a nap',
+      napHelp: 'Shows a bar on the home screen that follows the time since the last sleep ended: grey before the best time, green during it, orange up to the limit, then red. Durations are in minutes.',
+      napMin: 'Best time from (min)', napMax: 'Best time to (min)', napLimit: 'Maximum limit (min)',
+      napTitle: 'Best time for sleep', napEarly: 'Not yet', napIdeal: 'Now is the time!', napLate: 'Getting late', napOver: 'Limit passed',
+      napSleeping: 'Baby is asleep', napNone: 'No sleep logged yet', napAwake: (t) => `Awake for ${t}`,
       confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
       startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
       cdAria: (n) => `${n} minute countdown`,
@@ -203,7 +219,11 @@
     // optional features, on by default
     useCons: loadJson('useCons', true),
     useCountdown: loadJson('useCountdown', true),
-    cdMinutes: loadJson('cdMinutes', 15),
+    cdMinutes: loadJson('cdMinutes', NUM_FIELDS.cdMinutes.def),
+    useNap: loadJson('useNap', true),             // "best time for a nap" bar on the home screen
+    napMin: loadJson('napMin', NUM_FIELDS.napMin.def),
+    napMax: loadJson('napMax', NUM_FIELDS.napMax.def),
+    napLimit: loadJson('napLimit', NUM_FIELDS.napLimit.def),
     feedDefault: load('feedDefault', 'bottle'),   // what a new feed timer starts on: 'bottle' or 'breast'
     panel: null, mismatchPrompt: false,
     anomalyOn: false, anomalyKind: null, anomalyNote: '',
@@ -224,9 +244,9 @@
     });
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
     if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings'].includes(state.view)) state.view = 'home';
-    ['durLink', 'useCons', 'useCountdown'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
+    ['durLink', 'useCons', 'useCountdown', 'useNap'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
     if (!['bottle', 'breast'].includes(state.feedDefault)) state.feedDefault = 'bottle';
-    if (!(state.cdMinutes >= 1 && state.cdMinutes <= MAX_COUNTDOWN_MIN)) state.cdMinutes = 15;
+    Object.entries(NUM_FIELDS).forEach(([k, f]) => { if (!(state[k] >= f.min && state[k] <= f.max)) state[k] = f.def; });
     // breastfeed volumes used to be guessed from the duration; they were too inaccurate, so drop them
     const dropGuess = (e) => { if (e && e.estimated) { const c = { ...e }; delete c.milk; delete c.estimated; return c; } return e; };
     state.logs = state.logs.map(dropGuess); state.archive = state.archive.map(dropGuess);
@@ -561,7 +581,9 @@
       const timers = t && !t.startedAt ? { ...state.timers, eat: { ...t, breast: v === 'breast' } } : state.timers;
       set({ feedDefault: v, timers });
     },
-    cdBump: (v) => set({ cdMinutes: Math.min(MAX_COUNTDOWN_MIN, Math.max(1, state.cdMinutes + (+v))) }),
+    // +/- buttons of a numeric setting; v = "key:delta"
+    numBump: (v) => { const [k, d] = v.split(':'), f = NUM_FIELDS[k]; set({ [k]: Math.min(f.max, Math.max(f.min, state[k] + (+d))) }); },
+    toggleNap: () => set({ useNap: !state.useNap }),
     toggleCountdown: () => set({ useCountdown: !state.useCountdown }),
     // collapsible timer panels: toggled in place (no re-render) so the CSS transition can animate
     panel: (v) => {
@@ -688,8 +710,6 @@
     const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
   };
   const INPUTS = {
-    // typed in Settings: saved without re-rendering so the keyboard stays open
-    cdMin: (v) => { const n = parseInt(v, 10); if (n >= 1 && n <= MAX_COUNTDOWN_MIN) { state.cdMinutes = n; save(); } },
     milk: (v) => patchTimer({ milk: v }),
     anomalyNote: (v) => { state.anomalyNote = v; },
     editDt: (v, root) => { patchDraft({ dt: v }); followEnd(root); },
@@ -703,9 +723,63 @@
     },
     editMilk: (v) => patchDraft({ milk: v })
   };
+  // numbers typed in Settings: saved without re-rendering so the keyboard stays open
+  Object.keys(NUM_FIELDS).forEach(k => {
+    INPUTS['num_' + k] = (v) => { const n = parseInt(v, 10), f = NUM_FIELDS[k]; if (n >= f.min && n <= f.max) { state[k] = n; save(); } };
+  });
   ['durH', 'durM', 'durS'].forEach(k => {
     INPUTS['edit_' + k] = (v, root) => { patchDraft({ [k]: v }); followEnd(root); };
   });
+
+  // ---------- best time for a nap ----------
+  // Time awake = time since the end of the last sleep. Four zones on the bar: grey (too early), green (best
+  // time), orange (getting late) and red (past the limit); the bar ends a bit after the limit.
+  const napCfg = () => {
+    const min = state.napMin, max = Math.max(min, state.napMax), limit = Math.max(max, state.napLimit);
+    return { min, max, limit, total: limit + Math.max(10, Math.round(limit * 0.25)) };
+  };
+  const lastSleepEnd = () => state.archive.reduce((m, e) => (e.type === 'sleep' ? Math.max(m, entryEnd(e)) : m), 0);
+  const napStatus = () => {
+    const c = napCfg();
+    if (isStarted('sleep')) return { c, sleeping: true };
+    const last = lastSleepEnd();
+    if (!last) return { c, none: true };
+    const mins = Math.max(0, (Date.now() - last) / 60000);
+    return { c, mins, pct: Math.min(100, (mins / c.total) * 100), zone: mins < c.min ? 'early' : mins < c.max ? 'ideal' : mins < c.limit ? 'late' : 'over' };
+  };
+  const napDur = (m) => (m < 60 ? `${Math.floor(m)} min` : `${Math.floor(m / 60)}h${pad(Math.floor(m % 60))}`);
+  const napTexts = (st) => {
+    const l = L();
+    if (st.sleeping) return { zone: 'sleeping', status: l.napSleeping, awake: '' };
+    if (st.none) return { zone: 'none', status: l.napNone, awake: '' };
+    return { zone: st.zone, status: { early: l.napEarly, ideal: l.napIdeal, late: l.napLate, over: l.napOver }[st.zone], awake: l.napAwake(napDur(st.mins)) };
+  };
+  const napHtml = () => {
+    if (!state.useNap) return '';
+    const l = L(), st = napStatus(), c = st.c, t = napTexts(st);
+    const pc = (m) => `${(m / c.total) * 100}%`;
+    const zones = [['early', c.min], ['ideal', c.max - c.min], ['late', c.limit - c.max], ['over', c.total - c.limit]]
+      .map(([z, m]) => `<i class="z-${z}" style="width:${pc(m)}"></i>`).join('');
+    const ticks = [c.min, c.max, c.limit].map(m => `<span style="left:${pc(m)}">${napDur(m)}</span>`).join('');
+    return `<div class="nap" role="img" aria-label="${esc(l.napTitle + ' · ' + t.status + (t.awake ? ' · ' + t.awake : ''))}">
+      <div class="nap-top"><span class="nap-title">😴 ${l.napTitle}</span><span class="nap-status zone-${t.zone}">${esc(t.status)}</span></div>
+      <div class="nap-bar"><div class="nap-track">${zones}</div><b class="nap-cursor" style="left:${st.pct == null ? 0 : st.pct}%"${st.pct == null ? ' hidden' : ''}></b></div>
+      <div class="nap-ticks">${ticks}</div>
+      <div class="nap-awake">${esc(t.awake)}</div>
+    </div>`;
+  };
+  // refresh the cursor and texts every second without redrawing the screen
+  const updateNap = () => {
+    const el = root.querySelector('.nap');
+    if (!el) return;
+    const st = napStatus(), t = napTexts(st), cur = el.querySelector('.nap-cursor');
+    cur.hidden = st.pct == null;
+    if (st.pct != null) cur.style.left = st.pct + '%';
+    const status = el.querySelector('.nap-status'), awake = el.querySelector('.nap-awake');
+    status.className = 'nap-status zone-' + t.zone;
+    if (status.textContent !== t.status) status.textContent = t.status;
+    if (awake.textContent !== t.awake) awake.textContent = t.awake;
+  };
 
   // ---------- views ----------
   const attr = (a, v) => `data-a="${a}"${v !== undefined ? ` data-v="${esc(v)}"` : ''}`;
@@ -806,6 +880,7 @@
           <button class="icon-btn" aria-label="${esc(l.settings)}" ${attr('openSettings')}>${ICON.gear}</button>
         </div>
       </div>
+      ${napHtml()}
       <div class="grid">${TYPES.map(cardHtml).join('')}</div>
       <div class="bottom">
         <button class="btn-ghost" ${attr('copyAll')}>${l.copyAll}</button>
@@ -1227,11 +1302,17 @@
     const l = L();
     const seg = (items, cur, act) => `<div class="set-seg">${items.map(([v, label]) => `<button class="${cur === v ? 'on' : ''}" ${attr(act, v)}>${label}</button>`).join('')}</div>`;
     // a setting card with an on/off switch and a help text
-    const toggleCard = (title, key, act, help) => `<div class="panel plain set-card">
+    const toggleCard = (title, key, act, help, extra = '') => `<div class="panel plain set-card">
         <div class="set-row"><div class="set-title">${title}</div>
           <button class="switch${state[key] ? ' on' : ''}" role="switch" aria-checked="${state[key]}" aria-label="${esc(title)}" ${attr(act)}><i></i></button></div>
-        <div class="set-help">${help}</div>
+        <div class="set-help">${help}</div>${extra}
       </div>`;
+    // a minutes field with - / + buttons
+    const numRow = (key, label) => {
+      const f = NUM_FIELDS[key];
+      return `<div class="set-num"><span>${label}</span>
+          <div class="num-ctl"><button aria-label="−${f.step} min" ${attr('numBump', `${key}:${-f.step}`)}>−</button><input type="number" inputmode="numeric" min="${f.min}" max="${f.max}" data-i="num_${key}" id="num_${key}" value="${state[key]}" aria-label="${esc(label)}"><button aria-label="+${f.step} min" ${attr('numBump', `${key}:${f.step}`)}>+</button></div><span>min</span></div>`;
+    };
     return `<div class="full graphs"><div class="full-in">
       ${pageBar(l.settings)}
       <div class="panel plain set-card"><div class="set-title">${l.language}</div>${seg([['en', 'English'], ['fr', 'Français']], state.lang, 'setLang')}</div>
@@ -1239,13 +1320,8 @@
       <div class="panel plain set-card"><div class="set-title">${l.feedDefault}</div>${seg([['bottle', `🍼 ${l.bottle}`], ['breast', `🤱 ${l.breastfeeding}`]], state.feedDefault, 'setFeedDefault')}<div class="set-help">${l.feedDefaultHelp}</div></div>
       ${toggleCard(l.durLink, 'durLink', 'toggleDurLink', l.durLinkHelp)}
       ${toggleCard(l.consTitle, 'useCons', 'toggleCons', l.consHelp)}
-      <div class="panel plain set-card">
-        <div class="set-row"><div class="set-title">${l.cdTitle}</div>
-          <button class="switch${state.useCountdown ? ' on' : ''}" role="switch" aria-checked="${state.useCountdown}" aria-label="${esc(l.cdTitle)}" ${attr('toggleCountdown')}><i></i></button></div>
-        <div class="set-help">${l.cdHelp}</div>
-        ${state.useCountdown ? `<div class="set-num"><span>${l.cdLength}</span>
-          <div class="num-ctl"><button aria-label="−1 min" ${attr('cdBump', -1)}>−</button><input type="number" inputmode="numeric" min="1" max="${MAX_COUNTDOWN_MIN}" data-i="cdMin" id="cdMin" value="${state.cdMinutes}" aria-label="${l.minutes}"><button aria-label="+1 min" ${attr('cdBump', 1)}>+</button></div><span>min</span></div>` : ''}
-      </div>
+      ${toggleCard(l.cdTitle, 'useCountdown', 'toggleCountdown', l.cdHelp, state.useCountdown ? numRow('cdMinutes', l.cdLength) : '')}
+      ${toggleCard(l.napSetTitle, 'useNap', 'toggleNap', l.napHelp, state.useNap ? numRow('napMin', l.napMin) + numRow('napMax', l.napMax) + numRow('napLimit', l.napLimit) : '')}
     </div></div>`;
   };
 
@@ -1335,6 +1411,7 @@
   setInterval(() => {
     const live = (k, v) => root.querySelectorAll(`[data-live="${k}"]`).forEach(el => { if (el.textContent !== v) el.textContent = v; });
     checkCountdown();
+    updateNap();
     const cdl = countdownLeft();
     if (cdl != null) {
       live('sleep', cdSub(state.timers.sleep));
