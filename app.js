@@ -59,7 +59,7 @@
       tapStart: 'Lancer le chrono', tapPoop: 'Enregistrer',
       noSleep: 'Aucun dodo enregistré.', noEat: 'Aucun repas enregistré.', noPoop: 'Aucun caca enregistré.', noObs: 'Aucune remarque notée.',
       copySleep: 'Copier les dodos', copyEat: 'Copier les repas', copyPoop: 'Copier les cacas', copyObs: 'Copier les remarques', clear: 'Effacer',
-      copyAll: 'Copier les données', deleteAll: 'Tout supprimer',
+      copyAll: 'Copier les données', deleteAll: 'Tout archiver',
       cancel: 'Annuler', save: 'Enregistrer', edit: 'Modifier',
       dateTime: 'Date et heure', duration: 'Durée', size: 'Taille', milkLabel: 'Lait dans le biberon',
       howBig: 'Quelle taille ?', small: 'Petit', medium: 'Moyen', large: 'Gros', xl: 'Très gros',
@@ -83,14 +83,14 @@
       wSleep: 'Dodo', wPoop: 'Caca', wObs: 'Remarque',
       anomaly: 'Anomalie', anomalyKind: 'Type d’anomalie', anomalyPlaceholder: 'Précisez l’anomalie',
       anomLabel: 'Anomalie', anomColor: 'couleur', anomBlood: 'sang', anomOther: 'autre', anomOtherBtn: 'Autre', anomColorBtn: 'Couleur', anomBloodBtn: 'Sang',
-      delAllTitle: 'Tout supprimer ?', delAllBody: 'Toutes les entrées (dodos, repas, cacas, remarques) seront définitivement effacées. Action irréversible.',
+      delAllTitle: 'Tout archiver ?', delAllBody: 'Toutes les entrées (dodos, repas, cacas, remarques) quittent l’accueil. Elles restent consultables dans les Archives.',
       clearTitle: { sleep: 'Effacer les dodos ?', eat: 'Effacer les repas ?', poop: 'Effacer les cacas ?', obs: 'Effacer les remarques ?' },
       clearBody: 'Ces entrées seront définitivement supprimées. Action irréversible.',
-      delAllCta: 'Tout supprimer', clearCta: 'Effacer',
+      delAllCta: 'Tout archiver', clearCta: 'Effacer',
       kind: { sleep: 'dodo', eat: 'repas', poop: 'caca', obs: 'remarque' },
       copied: 'Copié dans le presse-papiers', copyFail: 'Accès au presse-papiers impossible',
       nothingCopy: 'Rien à copier', entryUpdated: 'Entrée mise à jour', badDate: 'Entrez une date et heure valides',
-      allDeleted: 'Toutes les données supprimées', cleared: 'Effacé',
+      allDeleted: 'Toutes les données archivées', cleared: 'Effacé',
       obs: 'Remarques', obsSub: 'Noter une remarque',
       obsWhat: 'Que se passe-t-il ?', obsHint: 'Un appui enregistre à l’heure actuelle', obsKind: 'Remarque',
       obsLogged: 'Remarque notée · copiée ✓',
@@ -145,7 +145,7 @@
       tapStart: 'Start the timer', tapPoop: 'Log it now',
       noSleep: 'No sleeps logged yet.', noEat: 'No feeds logged yet.', noPoop: 'No poops logged yet.', noObs: 'No remarks logged yet.',
       copySleep: 'Copy sleep data', copyEat: 'Copy feed data', copyPoop: 'Copy poop data', copyObs: 'Copy notes', clear: 'Clear',
-      copyAll: 'Copy all data', deleteAll: 'Delete all data',
+      copyAll: 'Copy all data', deleteAll: 'Archive all',
       cancel: 'Cancel', save: 'Save', edit: 'Edit',
       dateTime: 'Date & time', duration: 'Duration', size: 'Size', milkLabel: 'Milk in the bottle',
       howBig: 'How big was it?', small: 'Small', medium: 'Medium', large: 'Large', xl: 'XL',
@@ -169,14 +169,14 @@
       wSleep: 'Sleep', wPoop: 'Poop', wObs: 'Note',
       anomaly: 'Anomaly', anomalyKind: 'Anomaly type', anomalyPlaceholder: 'Describe the anomaly',
       anomLabel: 'Anomaly', anomColor: 'color', anomBlood: 'blood', anomOther: 'other', anomOtherBtn: 'Other', anomColorBtn: 'Color', anomBloodBtn: 'Blood',
-      delAllTitle: 'Delete all data?', delAllBody: 'This permanently erases every sleep, feed, poop and note entry. This can’t be undone.',
+      delAllTitle: 'Archive everything?', delAllBody: 'Every sleep, feed, poop and note entry leaves the home screen. They stay available in the Archive.',
       clearTitle: { sleep: 'Clear sleep data?', eat: 'Clear feed data?', poop: 'Clear poop data?', obs: 'Clear notes?' },
       clearBody: 'This permanently removes these entries. This can’t be undone.',
-      delAllCta: 'Delete all', clearCta: 'Clear',
+      delAllCta: 'Archive all', clearCta: 'Clear',
       kind: { sleep: 'sleep', eat: 'feed', poop: 'poop', obs: 'note' },
       copied: 'Copied to clipboard', copyFail: 'Couldn’t access clipboard',
       nothingCopy: 'Nothing to copy', entryUpdated: 'Entry updated', badDate: 'Enter a valid date & time',
-      allDeleted: 'All data deleted', cleared: 'Cleared',
+      allDeleted: 'All data archived', cleared: 'Cleared',
       obs: 'Notes', obsSub: 'Log a remark',
       obsWhat: 'What’s happening?', obsHint: 'One tap logs it at the current time', obsKind: 'Remark',
       obsLogged: 'Note logged · copied ✓',
@@ -1049,7 +1049,7 @@
         </div>
       </div>
       ${gaugesHtml()}
-      <div class="grid">${TYPES.map(cardHtml).join('')}</div>
+      <div class="grid${TYPES.some(t => state.expanded[t] && rowsFor(t).length) ? ' has-open' : ''}">${TYPES.map(cardHtml).join('')}</div>
       <div class="bottom">
         <button class="btn-ghost" ${attr('copyAll')}>${l.copyAll}</button>
         <button class="btn-danger-soft" ${attr('askDeleteAll')}>${l.deleteAll}</button>
