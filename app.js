@@ -3,7 +3,7 @@
 
   // ---------- constants ----------
   // state keys saved to localStorage (prefixed "ict_")
-  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault', 'useNap', 'napMin', 'napMax', 'napLimit', 'useFeedBar', 'feedMin', 'feedMax', 'feedLimit', 'routineAt', 'nightAt', 'feedCutoff'];
+  const KEYS = ['logs', 'archive', 'timers', 'view', 'unit', 'lang', 'durLink', 'useCons', 'useCountdown', 'cdMinutes', 'feedDefault', 'useNap', 'napMin', 'napMax', 'napLimit', 'useFeedBar', 'feedMin', 'feedMax', 'feedLimit', 'routineAt', 'nightAt', 'feedCutoff', 'useRgo'];
   const THEME = {
     sleep: { c: '#8b93ff', ink: '#16122a', tx: '#aab1ff', shadow: '#4f55b8', dim: 'rgba(139,147,255,.4)', emoji: '🌙' },
     eat: { c: '#ffb14e', ink: '#2e1c08', tx: '#ffc06a', shadow: '#b87a2b', dim: 'rgba(255,177,78,.42)', emoji: '🍼' },
@@ -38,6 +38,7 @@
     feedCutoff: { def: 17 * 60 }    // no planned feed from this time on (the routine includes it)
   };
   const DAY = 86400000;
+  const RGO_MIN = 50;         // reflux (RGO) milestone on the feed bar: minutes after the end of a feed
   const SHORT_NAP_MIN = 35;   // a sleep of 35 min or less ...
   const SHORT_NAP_CUT = 15;   // ... shortens the next awake time by 15 min
   const ML_PER_OZ = 29.5735;
@@ -112,6 +113,8 @@
       routineSetTitle: 'Routine du soir et dodo de nuit',
       routineHelp: 'Ces heures bornent le scénario de la journée : un dodo ou un repas prévu qui chevauche la routine ou le dodo de nuit n’est pas affiché. Aucun repas n’est prévu à partir de « Dernier repas hors routine », car le repas fait partie de la routine.',
       routineAt: 'Début de la routine du soir', nightAt: 'Dodo de nuit', feedCutoff: 'Dernier repas hors routine',
+      rgoTitle: 'RGO (reflux)', rgoHelp: 'Ajoute un jalon à 50 minutes après la fin du repas sur la barre des repas : « Tenir bébé droit » avant ce repère, « TummyTime OK » une fois dépassé.',
+      rgoHold: '🧍 Tenir bébé droit', rgoOk: '✅ TummyTime OK',
       confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
       startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
       cdAria: (n) => `Compte à rebours de ${n} minutes`,
@@ -198,6 +201,8 @@
       routineSetTitle: 'Evening routine and night sleep',
       routineHelp: 'These times frame the day plan: a planned sleep or feed that overlaps the routine or the night sleep is not shown. No feed is planned from “Last feed outside the routine” on, because the feed is part of the routine.',
       routineAt: 'Evening routine starts', nightAt: 'Night sleep starts', feedCutoff: 'Last feed outside the routine',
+      rgoTitle: 'Reflux (GERD)', rgoHelp: 'Adds a milestone 50 minutes after the end of a feed on the feed bar: “Keep baby upright” before it, “TummyTime OK” once it has passed.',
+      rgoHold: '🧍 Keep baby upright', rgoOk: '✅ TummyTime OK',
       confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
       startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
       cdAria: (n) => `${n} minute countdown`,
@@ -253,6 +258,7 @@
     napMin: loadJson('napMin', NUM_FIELDS.napMin.def),
     napMax: loadJson('napMax', NUM_FIELDS.napMax.def),
     napLimit: loadJson('napLimit', NUM_FIELDS.napLimit.def),
+    useRgo: loadJson('useRgo', false),            // reflux (RGO) milestone on the feed bar, off by default
     useFeedBar: loadJson('useFeedBar', true),     // "best time for a feed" bar on the home screen
     feedMin: loadJson('feedMin', NUM_FIELDS.feedMin.def),
     feedMax: loadJson('feedMax', NUM_FIELDS.feedMax.def),
@@ -281,6 +287,7 @@
     if ((state.view === 'sleep' || state.view === 'eat') && !state.timers[state.view]) state.view = 'home';
     if (!['home', 'sleep', 'eat', 'graphs', 'archive', 'settings', 'plan'].includes(state.view)) state.view = 'home';
     ['durLink', 'useCons', 'useCountdown', 'useNap', 'useFeedBar'].forEach(k => { if (typeof state[k] !== 'boolean') state[k] = true; });
+    if (typeof state.useRgo !== 'boolean') state.useRgo = false;
     if (!['bottle', 'breast'].includes(state.feedDefault)) state.feedDefault = 'bottle';
     Object.entries(TIME_FIELDS).forEach(([k, f]) => { if (!Number.isInteger(state[k]) || state[k] < 0 || state[k] > 1439) state[k] = f.def; });
     Object.entries(NUM_FIELDS).forEach(([k, f]) => { if (!(state[k] >= f.min && state[k] <= f.max)) state[k] = f.def; });
@@ -624,6 +631,7 @@
     openPlan: () => { planScroll = true; set({ view: 'plan' }); },
     toggleNap: () => set({ useNap: !state.useNap }),
     toggleFeedBar: () => set({ useFeedBar: !state.useFeedBar }),
+    toggleRgo: () => set({ useRgo: !state.useRgo }),
     toggleCountdown: () => set({ useCountdown: !state.useCountdown }),
     // collapsible timer panels: toggled in place (no re-render) so the CSS transition can animate
     panel: (v) => {
@@ -803,9 +811,14 @@
   const gaugeDur = (m) => (m < 60 ? `${Math.floor(m)} min` : `${Math.floor(m / 60)}h${pad(Math.floor(m % 60))}`);
   const gaugeTexts = (kind, st) => {
     const l = L(), g = GAUGES[kind];
-    if (st.busy) return { zone: 'busy', status: l[g.busy], since: '', note: '' };
-    if (st.none) return { zone: 'none', status: l[g.none], since: '', note: '' };
-    return { zone: st.zone, status: { early: l.napEarly, ideal: l.napIdeal, late: l.napLate, over: l.napOver }[st.zone], since: l[g.since](gaugeDur(st.mins)), note: st.shortened ? l.napShortened(SHORT_NAP_CUT) : '' };
+    if (st.busy) return { zone: 'busy', status: l[g.busy], since: '', note: '', noteCls: '' };
+    if (st.none) return { zone: 'none', status: l[g.none], since: '', note: '', noteCls: '' };
+    const t = { zone: st.zone, status: { early: l.napEarly, ideal: l.napIdeal, late: l.napLate, over: l.napOver }[st.zone], since: l[g.since](gaugeDur(st.mins)), note: st.shortened ? l.napShortened(SHORT_NAP_CUT) : '', noteCls: '' };
+    if (kind === 'feed' && state.useRgo) {                 // reflux: stay upright until the milestone, then tummy time is fine
+      const ok = st.mins >= RGO_MIN;
+      Object.assign(t, { note: ok ? l.rgoOk : l.rgoHold, noteCls: ok ? 'rgo-ok' : 'rgo-hold' });
+    }
+    return t;
   };
   const gaugeHtml = (kind) => {
     const g = GAUGES[kind];
@@ -814,12 +827,13 @@
     const pc = (m) => `${(m / c.total) * 100}%`;
     const zones = [['early', c.min], ['ideal', c.max - c.min], ['late', c.limit - c.max], ['over', c.total - c.limit]]
       .map(([z, m]) => `<i class="z-${z}" style="width:${pc(m)}"></i>`).join('');
-    const ticks = [c.min, c.max, c.limit].map(m => `<span style="left:${pc(m)}">${gaugeDur(m)}</span>`).join('');
+    const rgo = kind === 'feed' && state.useRgo;
+    const ticks = [c.min, c.max, c.limit].map(m => `<span style="left:${pc(m)}">${gaugeDur(m)}</span>`).join('') + (rgo ? `<span class="rgo" style="left:${pc(RGO_MIN)}">${gaugeDur(RGO_MIN)}</span>` : '');
     return `<div class="gauge" data-kind="${kind}">
       <div class="gauge-top"><span class="gauge-title">${g.emoji} ${l[g.title]}</span><span class="gauge-status zone-${t.zone}">${esc(t.status)}</span></div>
-      <div class="gauge-bar"><div class="gauge-track">${zones}</div><b class="gauge-cursor" style="left:${st.pct == null ? 0 : st.pct}%"${st.pct == null ? ' hidden' : ''}></b></div>
+      <div class="gauge-bar"><div class="gauge-track">${zones}</div>${rgo ? `<i class="gauge-rgo" style="left:${pc(RGO_MIN)}"></i>` : ''}<b class="gauge-cursor" style="left:${st.pct == null ? 0 : st.pct}%"${st.pct == null ? ' hidden' : ''}></b></div>
       <div class="gauge-ticks">${ticks}</div>
-      <div class="gauge-foot"><span class="gauge-since">${esc(t.since)}</span><span class="gauge-note">${esc(t.note)}</span></div>
+      <div class="gauge-foot"><span class="gauge-since">${esc(t.since)}</span><span class="gauge-note ${t.noteCls}">${esc(t.note)}</span></div>
     </div>`;
   };
   // both bars share one card; tapping it opens the day's plan
@@ -827,7 +841,7 @@
     const kinds = Object.keys(GAUGES).filter(k => state[GAUGES[k].on]);
     if (!kinds.length) return '';
     const l = L();
-    const summary = kinds.map(k => { const t = gaugeTexts(k, gaugeStatus(k)); return [l[GAUGES[k].title], t.status, t.since, t.note && l.napShortenedWhy(SHORT_NAP_MIN)].filter(Boolean).join(' · '); });
+    const summary = kinds.map(k => { const t = gaugeTexts(k, gaugeStatus(k)); return [l[GAUGES[k].title], t.status, t.since, k === 'nap' ? t.note && l.napShortenedWhy(SHORT_NAP_MIN) : t.note].filter(Boolean).join(' · '); });
     return `<div class="gauges" role="button" tabindex="0" ${attr('openPlan')} aria-label="${esc([l.planTitle, ...summary].join(' — '))}">${kinds.map(gaugeHtml).join('')}<span class="gauges-go" aria-hidden="true">›</span></div>`;
   };
   // refresh cursors and texts every second without redrawing the screen
@@ -839,6 +853,7 @@
       const setText = (sel, v) => { const n = el.querySelector(sel); if (n.textContent !== v) n.textContent = v; };
       el.querySelector('.gauge-status').className = 'gauge-status zone-' + t.zone;
       setText('.gauge-status', t.status); setText('.gauge-since', t.since); setText('.gauge-note', t.note);
+      el.querySelector('.gauge-note').className = 'gauge-note ' + t.noteCls;
     });
   };
 
@@ -1494,6 +1509,7 @@
       ${toggleCard(l.cdTitle, 'useCountdown', 'toggleCountdown', l.cdHelp, state.useCountdown ? numRow('cdMinutes', l.cdLength) : '')}
       ${toggleCard(l.napSetTitle, 'useNap', 'toggleNap', l.napHelp, state.useNap ? numRow('napMin', l.napMin) + numRow('napMax', l.napMax) + numRow('napLimit', l.napLimit) : '')}
       ${toggleCard(l.feedSetTitle, 'useFeedBar', 'toggleFeedBar', l.feedHelp, state.useFeedBar ? numRow('feedMin', l.napMin) + numRow('feedMax', l.napMax) + numRow('feedLimit', l.napLimit) : '')}
+      ${toggleCard(l.rgoTitle, 'useRgo', 'toggleRgo', l.rgoHelp)}
       <div class="panel plain set-card">
         <div class="set-title">${l.routineSetTitle}</div>
         <div class="set-help">${l.routineHelp}</div>

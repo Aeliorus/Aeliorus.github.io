@@ -338,6 +338,10 @@ body.dimmed .dimmable { opacity: .12; }
 .gauge-ticks span { position: absolute; top: 1px; transform: translateX(-50%); font-size: 10.5px; font-weight: 600; color: var(--mute-3); white-space: nowrap; }
 .gauge-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-height: 15px; font-size: 12px; font-weight: 600; color: var(--mute); }
 .gauge-note { color: #f5a04a; font-weight: 700; text-align: right; }
+.gauge-note.rgo-hold { color: #7db8ff; }
+.gauge-note.rgo-ok { color: #6fcf97; }
+.gauge-rgo { position: absolute; top: -2px; width: 2px; height: 16px; margin-left: -1px; background: #7db8ff; border-radius: 1px; box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.gauge-ticks span.rgo { color: #7db8ff; }
 
 /* trends */
 .tabs { display: flex; gap: 8px; background: var(--surface); border-radius: 16px; padding: 5px; margin-top: 18px; }
