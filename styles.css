@@ -207,9 +207,9 @@ input[type=datetime-local] { color-scheme: dark; }
 .tpanel.timer .tp-head, .tpanel.volume .tp-head { color: var(--c); }
 .tpanel.start .tp-head { color: var(--mute); }
 .tpanel.open .tp-head { min-height: 52px; font-size: 16px; }
-.mode-opts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
-.mode-opts button { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink-3); border-radius: 12px; padding: 12px 4px; font-size: 14px; font-weight: 700; }
-.mode-opts button span { font-size: 20px; line-height: 1; }
+.mode-opts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; }   /* 2 columns x 2 rows */
+.mode-opts button { display: flex; flex-direction: column; align-items: center; gap: 4px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink-3); border-radius: 12px; padding: 9px 4px; font-size: 13.5px; font-weight: 700; }
+.mode-opts button span { font-size: 18px; line-height: 1; }
 .mode-opts button.on { background: var(--c, var(--sleep)); border-color: var(--c, var(--sleep)); color: var(--ink-on, #16122a); }
 .modal .mode-opts button.on { background: var(--sleep); border-color: var(--sleep); color: #16122a; }
 .pill-mode { align-self: flex-start; font-size: 11.5px; font-weight: 700; color: var(--tx); background: rgba(255,255,255,.07); padding: 2px 8px; border-radius: 20px; }
@@ -294,8 +294,8 @@ body.dimmed .dimmable { opacity: .12; }
 .timer-body.roomy .tpanel.open .tp-head { min-height: 68px; font-size: 18px; }
 :is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .tpanel { border-radius: 22px; }
 :is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .tpanel .tg-btns button { padding: 17px 0; font-size: 17px; border-radius: 14px; }
-:is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .mode-opts button { padding: 18px 4px; font-size: 15px; }
-:is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .mode-opts button span { font-size: 26px; }
+:is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .mode-opts button { padding: 12px 4px; font-size: 14px; }
+:is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .mode-opts button span { font-size: 22px; }
 :is(.timer-body.roomy, .timer-body.eat:not(:has(.tpanel.open))) .tp-chev { font-size: 14px; }
 .timer-body.eat:not(:has(.tpanel.open)) .obs-quick { padding: 18px; font-size: 17px; border-radius: 20px; }
 /* feed screen with a panel open: compact, so the panel fits on screen */

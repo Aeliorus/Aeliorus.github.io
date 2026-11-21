@@ -14,7 +14,8 @@
   const SLEEP_MODES = [
     { key: 'couche', emoji: '🛏️', fr: 'Couché', en: 'In bed' },
     { key: 'portage', emoji: '🤗', fr: 'Portage', en: 'Carried' },
-    { key: 'sein', emoji: '🤱', fr: 'Au sein', en: 'At the breast' }
+    { key: 'sein', emoji: '🤱', fr: 'Au sein', en: 'At the breast' },
+    { key: 'poussette', emoji: '🚼', fr: 'Poussette', en: 'Stroller' }
   ];
   const OBS_KINDS = [
     { key: 'spitup', emoji: '💧', fr: 'Régurgitation', en: 'Spit-up' },
