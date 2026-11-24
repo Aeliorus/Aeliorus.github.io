@@ -31,6 +31,59 @@
     { key: 'solid', emoji: '🟤', fr: 'Solide', en: 'Solid' }
   ];
   const EAT_COLORS = { bottle: THEME.eat.c, breast: '#ffd9a0' };   // charts: bottle vs breastfeed
+  // foods proposed while typing a solid-food meal (French, English)
+  const FOODS = [
+    ["carotte", "carrot"], ["courgette", "zucchini"], ["potiron", "pumpkin"], ["courge butternut", "butternut squash"],
+    ["patate douce", "sweet potato"], ["pomme de terre", "potato"], ["haricots verts", "green beans"], ["petits pois", "peas"],
+    ["brocoli", "broccoli"], ["chou-fleur", "cauliflower"], ["épinards", "spinach"], ["poireau", "leek"],
+    ["panais", "parsnip"], ["navet", "turnip"], ["betterave", "beetroot"], ["céleri-rave", "celeriac"],
+    ["céleri branche", "celery"], ["fenouil", "fennel"], ["artichaut", "artichoke"], ["asperge", "asparagus"],
+    ["aubergine", "eggplant"], ["poivron rouge", "red pepper"], ["poivron jaune", "yellow pepper"], ["tomate", "tomato"],
+    ["concombre", "cucumber"], ["avocat", "avocado"], ["maïs", "sweetcorn"], ["blette", "chard"],
+    ["chou vert", "green cabbage"], ["chou rouge", "red cabbage"], ["chou de Bruxelles", "Brussels sprouts"], ["chou kale", "kale"],
+    ["champignon", "mushroom"], ["oignon", "onion"], ["échalote", "shallot"], ["ail", "garlic"],
+    ["salade verte", "lettuce"], ["mâche", "lamb's lettuce"], ["cresson", "watercress"], ["endive", "endive"],
+    ["radis", "radish"], ["topinambour", "Jerusalem artichoke"], ["rutabaga", "swede"], ["potimarron", "red kuri squash"],
+    ["courge spaghetti", "spaghetti squash"], ["pâtisson", "pattypan squash"], ["okra", "okra"], ["pomme", "apple"],
+    ["poire", "pear"], ["banane", "banana"], ["pêche", "peach"], ["nectarine", "nectarine"],
+    ["abricot", "apricot"], ["prune", "plum"], ["mirabelle", "mirabelle plum"], ["cerise", "cherry"],
+    ["fraise", "strawberry"], ["framboise", "raspberry"], ["myrtille", "blueberry"], ["mûre", "blackberry"],
+    ["groseille", "redcurrant"], ["cassis", "blackcurrant"], ["raisin", "grape"], ["melon", "melon"],
+    ["pastèque", "watermelon"], ["kiwi", "kiwi"], ["mangue", "mango"], ["ananas", "pineapple"],
+    ["papaye", "papaya"], ["orange", "orange"], ["clémentine", "clementine"], ["mandarine", "mandarin"],
+    ["pamplemousse", "grapefruit"], ["citron", "lemon"], ["figue", "fig"], ["datte", "date"],
+    ["coing", "quince"], ["rhubarbe", "rhubarb"], ["litchi", "lychee"], ["fruit de la passion", "passion fruit"],
+    ["grenade", "pomegranate"], ["compote de pommes", "apple puree"], ["compote de poires", "pear puree"], ["riz", "rice"],
+    ["riz complet", "brown rice"], ["semoule", "semolina"], ["pâtes", "pasta"], ["petites pâtes", "small pasta"],
+    ["vermicelles", "vermicelli"], ["quinoa", "quinoa"], ["boulgour", "bulgur"], ["polenta", "polenta"],
+    ["flocons d'avoine", "oats"], ["millet", "millet"], ["sarrasin", "buckwheat"], ["pain", "bread"],
+    ["biscuit", "biscuit"], ["céréales bébé", "baby cereal"], ["tapioca", "tapioca"], ["crème de riz", "rice cream"],
+    ["blé", "wheat"], ["lentilles corail", "red lentils"], ["lentilles vertes", "green lentils"], ["pois chiches", "chickpeas"],
+    ["haricots blancs", "white beans"], ["haricots rouges", "kidney beans"], ["pois cassés", "split peas"], ["fèves", "broad beans"],
+    ["tofu", "tofu"], ["edamame", "edamame"], ["houmous", "hummus"], ["poulet", "chicken"],
+    ["dinde", "turkey"], ["bœuf", "beef"], ["veau", "veal"], ["agneau", "lamb"],
+    ["porc", "pork"], ["jambon blanc", "ham"], ["canard", "duck"], ["lapin", "rabbit"],
+    ["steak haché", "minced beef"], ["foie de volaille", "chicken liver"], ["pintade", "guinea fowl"], ["saumon", "salmon"],
+    ["cabillaud", "cod"], ["colin", "hake"], ["lieu noir", "coley"], ["merlu", "whiting"],
+    ["sole", "sole"], ["truite", "trout"], ["thon", "tuna"], ["sardine", "sardine"],
+    ["maquereau", "mackerel"], ["dorade", "sea bream"], ["bar", "sea bass"], ["crevette", "shrimp"],
+    ["œuf", "egg"], ["jaune d'œuf", "egg yolk"], ["omelette", "omelette"], ["yaourt nature", "plain yogurt"],
+    ["yaourt", "yogurt"], ["fromage blanc", "fromage blanc"], ["petit-suisse", "petit-suisse"], ["lait de croissance", "growing-up milk"],
+    ["lait", "milk"], ["beurre", "butter"], ["crème fraîche", "crème fraîche"], ["emmental", "emmental"],
+    ["comté", "comté"], ["gruyère", "gruyère"], ["parmesan", "parmesan"], ["mozzarella", "mozzarella"],
+    ["ricotta", "ricotta"], ["chèvre frais", "fresh goat cheese"], ["kiri", "Kiri cheese"], ["vache qui rit", "Laughing Cow cheese"],
+    ["huile d'olive", "olive oil"], ["huile de colza", "rapeseed oil"], ["huile de noix", "walnut oil"], ["huile de tournesol", "sunflower oil"],
+    ["huile de lin", "linseed oil"], ["huile de pépins de raisin", "grapeseed oil"], ["huile de chanvre", "hemp oil"], ["huile de soja", "soybean oil"],
+    ["huile ISIO 4", "ISIO 4 oil"], ["margarine", "margarine"], ["purée d'amande", "almond butter"], ["purée de cacahuète", "peanut butter"],
+    ["purée de noisette", "hazelnut butter"], ["poudre d'amande", "ground almonds"], ["noix", "walnut"], ["graines de chia", "chia seeds"],
+    ["graines de lin", "flax seeds"], ["sésame", "sesame"], ["tahini", "tahini"], ["persil", "parsley"],
+    ["ciboulette", "chives"], ["basilic", "basil"], ["coriandre", "coriander"], ["menthe", "mint"],
+    ["thym", "thyme"], ["romarin", "rosemary"], ["laurier", "bay leaf"], ["aneth", "dill"],
+    ["estragon", "tarragon"], ["cumin", "cumin"], ["curcuma", "turmeric"], ["cannelle", "cinnamon"],
+    ["vanille", "vanilla"], ["muscade", "nutmeg"], ["paprika doux", "sweet paprika"], ["gingembre", "ginger"],
+    ["herbes de Provence", "herbes de Provence"], ["eau", "water"], ["bouillon de légumes", "vegetable stock"], ["soupe", "soup"],
+    ["purée", "mash"], ["cacao", "cocoa"], ["miel", "honey"]
+  ];
   const POOP_SIZES = ['small', 'medium', 'large', 'xl'];
   // times of day typed in Settings (minutes after midnight)
   const TIME_FIELDS = {
@@ -116,6 +169,10 @@
       routineAt: 'Début de la routine du soir', nightAt: 'Dodo de nuit', feedCutoff: 'Dernier repas hors routine',
       rgoTitle: 'RGO (reflux)', rgoHelp: 'Ajoute un jalon à 50 minutes après la fin du repas sur la barre des repas : « Tenir bébé droit » avant ce repère, « TummyTime OK » une fois dépassé.',
       rgoHold: '🧍 Tenir bébé droit', rgoOk: '✅ TummyTime OK',
+      solid: 'Diversification', solidTitle: 'Repas de diversification', solidSave: 'Valider le repas',
+      solidTimeHint: 'Heure = validation (modifiable ensuite)', ingredients: 'Aliments · quantité facultative',
+      ingPh: (n) => `Aliment ${n}`, qtyPh: 'Quantité', addIng: '+ Ajouter un aliment', recentMeals: 'Derniers repas',
+      solidSaved: 'Repas enregistré · copié ✓', solidEmpty: 'Ajoutez au moins un aliment', ingCount: (n) => `${n} aliment${n > 1 ? 's' : ''}`,
       confirm: 'Valider', consistency: 'Consistance', typeName: { sleep: 'Dodo', eat: 'Repas' },
       startNow: 'Lancer maintenant', countdown: 'Compte à rebours', cdStatus: '⏳ Le dodo démarre dans', cdSub: 'Départ dans',
       cdAria: (n) => `Compte à rebours de ${n} minutes`,
@@ -204,6 +261,10 @@
       routineAt: 'Evening routine starts', nightAt: 'Night sleep starts', feedCutoff: 'Last feed outside the routine',
       rgoTitle: 'Reflux (GERD)', rgoHelp: 'Adds a milestone 50 minutes after the end of a feed on the feed bar: “Keep baby upright” before it, “TummyTime OK” once it has passed.',
       rgoHold: '🧍 Keep baby upright', rgoOk: '✅ TummyTime OK',
+      solid: 'Solids', solidTitle: 'Solid food meal', solidSave: 'Save the meal',
+      solidTimeHint: 'Time = when you save (editable later)', ingredients: 'Foods · amount optional',
+      ingPh: (n) => `Food ${n}`, qtyPh: 'Amount', addIng: '+ Add a food', recentMeals: 'Recent meals',
+      solidSaved: 'Meal saved · copied ✓', solidEmpty: 'Add at least one food', ingCount: (n) => `${n} food${n > 1 ? 's' : ''}`,
       confirm: 'Confirm', consistency: 'Consistency', typeName: { sleep: 'Sleep', eat: 'Feed' },
       startNow: 'Start now', countdown: 'Countdown', cdStatus: '⏳ Sleep starts in', cdSub: 'Starts in',
       cdAria: (n) => `${n} minute countdown`,
@@ -272,7 +333,7 @@
     anomalyOn: false, anomalyKind: null, anomalyNote: '',
     toast: '', deleteTarget: null, editDraft: null,
     metric: 'sleep', selectedDay: null, archiveFilter: 'all', archiveSort: 'desc',
-    poopPicker: false, poopSel: emptyPoopSel(), obsPicker: false, switchPrompt: null, sidePrompt: null, expanded: {}
+    poopPicker: false, poopSel: emptyPoopSel(), obsPicker: false, switchPrompt: null, sidePrompt: null, solidRecentOpen: false, expanded: {}
   };
   // Upgrade data saved by older builds and make sure every saved value is valid.
   (function migrate() {
@@ -346,6 +407,11 @@
   const idPrefix = (type) => (type === 'eat' ? 'e' : 's');
   const upsertArchive = (entry) => sortDesc([entry, ...state.archive.filter(l => l.id !== entry.id)]);
   const sideLabel = (side) => (side === 'left' ? L().left : side === 'right' ? L().right : '');
+  // ----- solid food (diversification) -----
+  const norm = (x) => String(x || '').toLowerCase().replace(/’/g, "'").normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const emptyItems = () => [{ name: '', qty: '' }, { name: '', qty: '' }];
+  const ingText = (it) => (it.qty ? `${it.name} (${it.qty})` : it.name);
+  const solidNames = (e) => (e.items || []).map(ingText).join(', ');
   const consLabel = (key) => { const c = CONSISTENCIES.find(x => x.key === key); return c ? (fr() ? c.fr : c.en) : ''; };
   // "Gros · Purée" for the size and consistency of a poop entry
   const poopDesc = (e) => [e.size ? (L()[e.size] || e.size) : '', consLabel(e.consistency)].filter(Boolean).join(' · ');
@@ -363,6 +429,7 @@
     }
     if (e.type === 'obs') return `${l.wObs} · ${date} · ${time} · ${obsLabel(e.obs)}`;
     if (e.type === 'sleep') return `${l.wSleep} · ${date} · ${time} · ${end} · ${durMin}min${e.mode ? ` · ${sleepModeLabel(e.mode)}` : ''}`;
+    if (e.solid) return `${l.solid} · ${date} · ${time} · ${solidNames(e)}`;
     if (e.breast) {
       const side = e.side ? l.sideWord[e.side === 'left' ? 'left' : 'right'] : '';
       const tail = [e.milk ? `${e.milk}${e.unit || 'ml'}` : '', side].filter(Boolean).map(s => ` · ${s}`).join('');
@@ -452,7 +519,21 @@
     set({ timers: { ...state.timers, [type]: state.timers[type] || freshTimer(type) }, view: type });
   };
   // the same timer, started at time `at` (no countdown pending, measured time back to 0)
-  const startedTimer = (t, at) => ({ ...t, countdownEnd: null, startedAt: at, running: true, accMs: 0, lastStart: at, pausedAt: null });
+  const startedTimer = (t, at) => ({ ...t, countdownEnd: null, startedAt: at, running: true, accMs: 0, lastStart: at, pausedAt: null, milkMemo: null });
+  // feed modes: 'bottle', 'breast', 'solid' (diversification, no timer). Switching mode starts the volume at zero.
+  // Before the timer is launched the volume typed in each mode is kept (milkMemo) and comes back when switching
+  // back; once launched it is forgotten.
+  const feedModeOf = (t) => (t.solid ? 'solid' : t.breast ? 'breast' : 'bottle');
+  const withFeedMode = (t, mode) => {
+    const cur = feedModeOf(t);
+    if (cur === mode) return t;
+    const base = { ...t, breast: mode === 'breast', solid: mode === 'solid' };
+    if (mode === 'solid' && !(t.items && t.items.length)) base.items = emptyItems();
+    if (t.startedAt) return { ...base, milk: '', milkMemo: null };
+    const memo = { ...(t.milkMemo || {}) };
+    if (cur !== 'solid') memo[cur] = t.milk || '';
+    return { ...base, milk: mode === 'solid' ? '' : memo[mode] || '', milkMemo: memo };
+  };
   const beginTimer = (type) => {
     const t = state.timers[type];
     setTimerOf(type, { ...startedTimer(t, Date.now()), ...(type === 'sleep' && !t.mode ? { mode: defaultSleepMode() } : {}) });
@@ -521,7 +602,7 @@
   };
 
   const canResume = (e) => {
-    if (e.type === 'poop' || e.type === 'obs') return false;
+    if (e.type === 'poop' || e.type === 'obs' || e.solid) return false;
     if (isStarted(e.type)) return false;
     return Date.now() - (e.timestamp + (e.duration || 0) * 1000) < RESUME_WINDOW_MS;
   };
@@ -557,13 +638,14 @@
       id, type: e.type, dt: toLocalInput(e.timestamp), endDt: toLocalInput(entryEnd(e)), milk: e.milk || '', unit: e.unit || 'ml',
       origMis: entryEnd(e) - (e.timestamp + dur * 1000), mode: e.mode || '',
       size: e.size || '', consistency: e.consistency || '', obs: e.obs || '', breast: !!e.breast, side: e.side || '',
+      solid: !!e.solid, items: e.solid ? [...(e.items || []).map(it => ({ name: it.name, qty: it.qty || '' })), ...emptyItems()].slice(0, Math.max(2, (e.items || []).length)) : null,
       ...durParts(dur)
     } });
   };
   const draftSecs = (d) => (parseFloat(d.durH) || 0) * 3600 + (parseFloat(d.durM) || 0) * 60 + (parseFloat(d.durS) || 0);
   // gap between the saved end time and start + duration (ms); null when it does not apply
   const draftMismatch = (d) => {
-    if (!hasDuration(d.type)) return null;
+    if (!hasDuration(d.type) || d.solid) return null;
     const s = new Date(d.dt).getTime(), e = new Date(d.endDt).getTime();
     if (isNaN(s) || isNaN(e)) return null;
     return e - (s + Math.round(draftSecs(d)) * 1000);
@@ -571,6 +653,7 @@
   const saveEdit = () => {
     const d = state.editDraft, ts = new Date(d.dt).getTime();
     if (!d.dt || isNaN(ts)) return showToast(L().badDate);
+    if (d.solid && !cleanItems(d.items).length) return showToast(L().solidEmpty);
     // warn only when this edit created a new gap (entries from timers can already differ slightly)
     const mis = draftMismatch(d);
     if (mis != null && Math.abs(mis) > 60000 && Math.abs(mis - (d.origMis || 0)) > 60000) return upd({ mismatchPrompt: true });
@@ -582,7 +665,7 @@
     const apply = (l) => {
       if (l.id !== d.id) return l;
       const next = { ...l, timestamp: ts };
-      if (hasDuration(l.type)) {
+      if (hasDuration(l.type) && !l.solid) {
         next.duration = Math.max(0, Math.round(draftSecs(d)));
         const endTs = new Date(d.endDt).getTime();
         next.endTimestamp = !isNaN(endTs) ? endTs : ts + next.duration * 1000;
@@ -590,7 +673,8 @@
       if (l.type === 'poop') { next.size = d.size || ''; if (d.consistency) next.consistency = d.consistency; else delete next.consistency; }
       if (l.type === 'obs') next.obs = d.obs || l.obs;
       if (l.type === 'sleep') { if (d.mode) next.mode = d.mode; else delete next.mode; }
-      if (l.type === 'eat') {
+      if (l.type === 'eat' && l.solid) { next.items = cleanItems(d.items); next.endTimestamp = ts; next.trueStartedAt = ts; }
+      else if (l.type === 'eat') {
         const milk = (d.milk || '').toString().trim();
         if (d.breast) {
           next.breast = true;
@@ -624,7 +708,7 @@
     setFeedDefault: (v) => {
       // a feed timer that was opened but not started yet follows the new default
       const t = state.timers.eat;
-      const timers = t && !t.startedAt ? { ...state.timers, eat: { ...t, breast: v === 'breast' } } : state.timers;
+      const timers = t && !t.startedAt ? { ...state.timers, eat: withFeedMode(t, v) } : state.timers;
       set({ feedDefault: v, timers });
     },
     // +/- buttons of a numeric setting; v = "key:delta"
@@ -698,7 +782,7 @@
     },
     goHome: () => set({ view: 'home' }),
     switchView: (v) => { state.panel = null; set({ view: v }); },
-    cancelTimer: () => { const t = curT(); set({ timers: { ...state.timers, [t.type]: null }, view: 'home' }); },
+    cancelTimer: () => { const t = curT(); set({ timers: { ...state.timers, [t.type]: null }, view: 'home', solidRecentOpen: false }); },
     startTimer: () => {
       const t = curT();
       if (isStarted(otherType(t.type))) return upd({ switchPrompt: t.type });
@@ -729,16 +813,45 @@
     bumpStart: (v) => bumpStart(+v), bumpTimer: (v) => bumpTimer(+v), bumpMilk: (v) => bumpMilk(+v),
     // presets are in ml: pick ml so the value shown matches the button
     presetMilk: (v) => patchTimer({ milk: String(v), breast: false }),
-    modeBottle: () => patchTimer({ breast: false }),
-    modeBreast: () => patchTimer({ breast: true }),
+    modeBottle: () => { const t = curT(); if (t) setTimerOf(t.type, withFeedMode(t, 'bottle')); },
+    modeBreast: () => { const t = curT(); if (t) setTimerOf(t.type, withFeedMode(t, 'breast')); },
+    modeSolid: () => { const t = curT(); if (t && !t.startedAt) setTimerOf(t.type, withFeedMode(t, 'solid')); },
+    // ----- solid-food meal editor (scope 'new' = the feed screen, 'edit' = the edit window)
+    addIng: (scope) => {
+      const list = [...ingList(scope), { name: '', qty: '' }];
+      setIngList(scope, list); render();
+      const el = document.getElementById(`ingn_${scope}_${list.length - 1}`); if (el) el.focus();
+    },
+    pickIng: (v) => {
+      const [scope, idx, ...rest] = v.split('|');
+      setIngList(scope, ingList(scope).map((it, i) => (i === +idx ? { ...it, name: rest.join('|') } : it))); render();
+      const el = document.getElementById(`ingq_${scope}_${idx}`); if (el) el.focus();
+    },
+    useRecent: (i) => {
+      const m = recentSolidMeals()[+i];
+      if (!m) return;
+      const items = m.items.map(it => ({ name: it.name, qty: it.qty || '' }));
+      while (items.length < 2) items.push({ name: '', qty: '' });
+      setIngList('new', items); render();
+    },
+    toggleRecent: () => upd({ solidRecentOpen: !state.solidRecentOpen }),
+    saveSolid: () => {
+      const items = cleanItems(state.timers.eat.items);
+      if (!items.length) return showToast(L().solidEmpty);
+      const n = Date.now();
+      const entry = { id: 'e' + n, type: 'eat', solid: true, timestamp: n, trueStartedAt: n, duration: 0, endTimestamp: n, items };
+      state.solidRecentOpen = false; state.view = 'home';
+      commitEntry(entry, { timers: { ...state.timers, eat: null } });
+      copy(lineFor(entry), L().solidSaved);
+    },
     breastSide: (v) => patchTimer({ side: v }),
     // the unit is a global setting: convert the volume typed in a running feed timer
     setUnit: (v) => {
       if (v === state.unit) return;
-      const t = state.timers.eat, n = t ? parseFloat(t.milk) : NaN;
-      const timers = (!isNaN(n) && n > 0)
-        ? { ...state.timers, eat: { ...t, milk: String(v === 'oz' ? Math.round(n / ML_PER_OZ * 2) / 2 : Math.round(n * ML_PER_OZ)) } }
-        : state.timers;
+      const conv = (x) => { const n = parseFloat(x); return !isNaN(n) && n > 0 ? String(v === 'oz' ? Math.round(n / ML_PER_OZ * 2) / 2 : Math.round(n * ML_PER_OZ)) : x; };
+      const t = state.timers.eat;
+      const memo = t && t.milkMemo ? Object.fromEntries(Object.entries(t.milkMemo).map(([k, x]) => [k, conv(x)])) : null;
+      const timers = t ? { ...state.timers, eat: { ...t, milk: conv(t.milk), milkMemo: memo } } : state.timers;
       set({ unit: v, timers });
     },
     openGraphs: () => upd({ view: 'graphs', selectedDay: null }),
@@ -751,6 +864,36 @@
     removeArchive: (id) => set({ archive: state.archive.filter(l => l.id !== id) })
   };
 
+  // ----- ingredient lines of a solid-food meal
+  const ingList = (scope) => (scope === 'edit' ? state.editDraft.items : state.timers.eat.items) || emptyItems();
+  const setIngList = (scope, list) => {
+    if (scope === 'edit') state.editDraft = { ...state.editDraft, items: list };
+    else { state.timers = { ...state.timers, eat: { ...state.timers.eat, items: list } }; save(); }
+  };
+  const cleanItems = (list) => (list || []).map(it => ({ name: (it.name || '').trim(), qty: (it.qty || '').trim() }))
+    .filter(it => it.name).map(it => (it.qty ? it : { name: it.name }));
+  // the last 3 different meals (same foods in the same order = same meal)
+  const recentSolidMeals = () => {
+    const seen = new Set(), out = [];
+    for (const e of sortDesc(state.archive.filter(x => x.solid && x.items && x.items.length))) {
+      const key = e.items.map(i => norm(i.name)).join('|');
+      if (seen.has(key)) continue;
+      seen.add(key); out.push({ items: e.items, label: e.items.map(i => i.name).join(', ') });
+      if (out.length === 3) break;
+    }
+    return out;
+  };
+  // foods matching what is typed: built-in list plus foods already entered; starting matches first
+  const foodMatches = (q) => {
+    const n = norm(q.trim());
+    if (!n) return [];
+    const byKey = new Map();
+    state.archive.filter(e => e.solid).forEach(e => (e.items || []).forEach(i => byKey.set(norm(i.name), i.name)));
+    FOODS.forEach(f => { const name = fr() ? f[0] : f[1]; if (!byKey.has(norm(name))) byKey.set(norm(name), name); });
+    const keys = [...byKey.keys()].filter(k => k !== n);
+    return [...keys.filter(k => k.startsWith(n)), ...keys.filter(k => !k.startsWith(n) && k.includes(n))].slice(0, 6).map(k => byKey.get(k));
+  };
+  const anyIng = (list) => (list || []).some(it => (it.name || '').trim());
   // when the setting is on, the end time follows start + duration while the user types
   const followEnd = (root) => {
     const d = state.editDraft, start = new Date(d.dt).getTime();
@@ -758,7 +901,22 @@
     d.endDt = toLocalInput(start + draftSecs(d) * 1000);
     const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
   };
+  const setIngField = (el, field, v) => {
+    const scope = el.dataset.scope, idx = +el.dataset.idx;
+    setIngList(scope, ingList(scope).map((it, i) => (i === idx ? { ...it, [field]: v } : it)));
+  };
   const INPUTS = {
+    ing_name: (v, root, el) => {
+      setIngField(el, 'name', v);
+      const box = el.parentElement.querySelector('.ing-sugg'), m = foodMatches(v);
+      box.innerHTML = m.map(name => `<button type="button" ${attr('pickIng', `${el.dataset.scope}|${el.dataset.idx}|${name}`)}>${esc(name)}</button>`).join('');
+      box.hidden = !m.length;
+      if (el.dataset.scope === 'new') {
+        const r = root.querySelector('.recent'); if (r) r.classList.toggle('min', anyIng(state.timers.eat.items) && !state.solidRecentOpen);
+        const lbl = root.querySelector('.tpanel.volume .tp-lbl'); if (lbl) lbl.innerHTML = volumeTitle(state.timers.eat);
+      }
+    },
+    ing_qty: (v, root, el) => setIngField(el, 'qty', v),
     // typed volume: no redraw (a redraw would recreate the field and send the cursor back to the start);
     // only the panel title and the highlighted preset are refreshed
     milk: (v, root) => {
@@ -801,7 +959,7 @@
     nap: { type: 'sleep', on: 'useNap', keys: ['napMin', 'napMax', 'napLimit'], emoji: '😴', title: 'napTitle', none: 'napNone', busy: 'napSleeping', since: 'napAwake' },
     feed: { type: 'eat', on: 'useFeedBar', keys: ['feedMin', 'feedMax', 'feedLimit'], emoji: '🍼', title: 'feedBarTitle', none: 'feedNone', busy: 'feedEating', since: 'feedSince' }
   };
-  const lastEntry = (type) => state.archive.reduce((best, e) => (e.type === type && (!best || entryEnd(e) > entryEnd(best)) ? e : best), null);
+  const lastEntry = (type) => state.archive.reduce((best, e) => (e.type === type && !e.solid && (!best || entryEnd(e) > entryEnd(best)) ? e : best), null);
   // milestones (minutes) of a bar; lastDurSec = duration of the previous sleep (null if none)
   const gaugeCfg = (kind, lastDurSec) => {
     const g = GAUGES[kind];
@@ -879,7 +1037,7 @@
   const avgDuration = (type, at) => {
     const since = Date.now() - 14 * DAY;
     // night sleeps (4 h and more) and empty entries do not count
-    const all = state.archive.filter(e => e.type === type && e.timestamp >= since && (e.duration || 0) >= 60 && (type !== 'sleep' || e.duration < 4 * 3600));
+    const all = state.archive.filter(e => e.type === type && !e.solid && e.timestamp >= since && (e.duration || 0) >= 60 && (type !== 'sleep' || e.duration < 4 * 3600));
     const m = minutesOfDay(at);
     const near = all.filter(e => { const d = Math.abs(minutesOfDay(e.timestamp) - m); return Math.min(d, 1440 - d) <= 60; });
     const pool = near.length ? near : all;
@@ -892,7 +1050,7 @@
     // actual entries (a resumed entry is replaced by its running timer)
     const running = ['sleep', 'eat'].map(type => state.timers[type]).filter(t => t && t.startedAt);
     const items = state.archive
-      .filter(e => (e.type === 'sleep' || e.type === 'eat') && entryEnd(e) > day0 && e.timestamp < day0 + DAY && !running.some(t => t.resumedId === e.id))
+      .filter(e => (e.type === 'sleep' || e.type === 'eat') && !e.solid && entryEnd(e) > day0 && e.timestamp < day0 + DAY && !running.some(t => t.resumedId === e.id))
       .map(e => ({ type: e.type, start: e.timestamp, end: entryEnd(e), pred: false, e }));
     running.forEach(t => items.push({ type: t.type, start: t.startedAt, end: now, pred: false, e: { breast: t.breast, side: t.side, milk: t.milk, unit: state.unit, mode: t.mode } }));
     // the frise starts when the night sleep ended (else at the first entry of the day, else now)
@@ -989,6 +1147,7 @@
       main = durLabel(e.duration); line = `${timeOf(e.timestamp)} → ${end}`; big = true;
       if (e.mode) anom = `<span class="pill-mode">${sleepModeOf(e.mode).emoji} ${esc(sleepModeLabel(e.mode))}</span>`;
     }
+    else if (type === 'eat' && e.solid) { main = `🥄 ${l.solid}`; line = `${timeOf(e.timestamp)} · ${solidNames(e)}`; big = true; }
     else if (type === 'eat') {
       main = e.breast ? `🤱 ${e.milk ? `${e.milk} ${e.unit || 'ml'}` : (sideLabel(e.side) || l.breastfeeding)}` : (e.milk ? `${e.milk} ${e.unit || 'ml'}` : durLabel(e.duration));
       line = `${timeOf(e.timestamp)} → ${end} · ${durLabel(e.duration)}${e.breast && e.milk && e.side ? ' · ' + sideLabel(e.side) : ''}`; big = true;
@@ -1155,7 +1314,7 @@
   const editHtml = () => {
     const d = state.editDraft;
     if (!d) return '';
-    const l = L(), hasDur = hasDuration(d.type);
+    const l = L(), hasDur = hasDuration(d.type) && !d.solid;
     const emoji = THEME[d.type].emoji;
     const num = (key, val) => `<input type="number" inputmode="numeric" min="0" data-i="edit_${key}" value="${esc(val)}" placeholder="0">`;
     let body = `<div class="edit-title">${emoji} ${l.edit} ${l.kind[d.type]}</div>
@@ -1171,7 +1330,8 @@
       ${state.useCons ? `<div class="fl">${l.consistency}</div><div class="pick-row">${CONSISTENCIES.map(c => `<button class="pick${d.consistency === c.key ? ' on-poop' : ''}" ${attr('editCons', c.key)}>${c.emoji} ${esc(fr() ? c.fr : c.en)}</button>`).join('')}</div>` : ''}`;
     if (d.type === 'sleep') body += `<div class="fl">${l.sleepType}</div><div class="mode-opts">${SLEEP_MODES.map(m => `<button class="${d.mode === m.key ? 'on' : ''}" ${attr('editMode', d.mode === m.key ? '' : m.key)}><span>${m.emoji}</span>${esc(fr() ? m.fr : m.en)}</button>`).join('')}</div>`;
     if (d.type === 'obs') body += `<div class="fl">${l.obsKind}</div><div class="pick-col">${OBS_KINDS.map(k => `<button class="pick obs-opt${d.obs === k.key ? ' on-obs' : ''}" ${attr('editObs', k.key)}><span>${k.emoji}</span><span>${esc(fr() ? k.fr : k.en)}</span></button>`).join('')}</div>`;
-    if (d.type === 'eat') body += `<div class="fl">${d.breast ? l.breastVolume : l.milkLabel}</div>
+    if (d.type === 'eat' && d.solid) body += `<div class="fl">${l.ingredients}</div>${ingEditor('edit', d.items || emptyItems())}`;
+    else if (d.type === 'eat') body += `<div class="fl">${d.breast ? l.breastVolume : l.milkLabel}</div>
       <div class="milk-row"><input type="number" inputmode="decimal" data-i="editMilk" value="${esc(d.milk)}" placeholder="0">
       <button class="pick unit${d.unit === 'ml' ? ' on-unit' : ''}" ${attr('editUnit', 'ml')}>ml</button><button class="pick unit${d.unit === 'oz' ? ' on-unit' : ''}" ${attr('editUnit', 'oz')}>oz</button></div>`;
     if (d.type === 'eat' && d.breast) body += `<div class="fl">${l.whichSide}</div>
@@ -1181,16 +1341,31 @@
   };
 
   // the feed panel title is the volume itself (value + unit), not the word "Volume"
-  const volumeTitle = (a) => a.breast
+  const volumeTitle = (a) => a.solid
+    ? `🥄 <span>${anyIng(a.items) ? L().ingCount(cleanItems(a.items).length) : L().solid}</span>`
+    : a.breast
     ? `🤱 <span>${sideLabel(a.side) || L().whichSide}${parseFloat(a.milk) > 0 ? ` · ${esc(a.milk)} ${state.unit}` : ''}</span>`
     : `🍼 <span class="vol-val">${esc(a.milk || '0')} ${state.unit}</span>`;
+  // ingredient lines (a name with suggestions below it, an optional amount) and the "+" button
+  const ingEditor = (scope, items) => `<div class="ing-list">${items.map((it, i) => `<div class="ing-row">
+      <div class="ing-name"><input type="text" id="ingn_${scope}_${i}" data-i="ing_name" data-scope="${scope}" data-idx="${i}" value="${esc(it.name || '')}" placeholder="${esc(L().ingPh(i + 1))}" autocomplete="off" enterkeyhint="next"><div class="ing-sugg" hidden></div></div>
+      <input type="text" class="ing-qty" id="ingq_${scope}_${i}" data-i="ing_qty" data-scope="${scope}" data-idx="${i}" value="${esc(it.qty || '')}" placeholder="${esc(L().qtyPh)}" autocomplete="off" enterkeyhint="next">
+    </div>`).join('')}</div>
+    <button type="button" class="ing-add" ${attr('addIng', scope)}>${L().addIng}</button>`;
+  const recentHtml = (items) => {
+    const meals = recentSolidMeals();
+    if (!meals.length) return '';
+    return `<div class="recent${anyIng(items) && !state.solidRecentOpen ? ' min' : ''}"><button type="button" class="recent-head" ${attr('toggleRecent')}><span>🕘 ${L().recentMeals}</span><i>▾</i></button>
+      <div class="recent-list">${meals.map((m, i) => `<button type="button" ${attr('useRecent', i)}>${esc(m.label)}</button>`).join('')}</div></div>`;
+  };
   const timerHtml = () => {
     const a = curT();
     if (!a) return '';
     const l = L(), isEat = a.type === 'eat', isSleep = a.type === 'sleep', th = THEME[a.type];
     const started = !!a.startedAt, running = !!a.running;
     const cdLeft = isSleep ? countdownLeft(a) : null;
-    const status = cdLeft != null ? l.cdStatus : !started ? l.ready : running ? l.recording : l.paused;
+    const solidMode = isEat && !!a.solid && !started;
+    const status = solidMode ? l.solidTitle : cdLeft != null ? l.cdStatus : !started ? l.ready : running ? l.recording : l.paused;
     // shortcut to the other timer when both are running
     const other = otherType(a.type), ot = state.timers[other];
     const otherChip = isStarted(other)
@@ -1223,10 +1398,11 @@
       mid += panel('mode', 'volume', title, body);
     }
     if (isEat) {
-      const breast = !!a.breast;
-      let body = `<div class="modes"><button class="${breast ? '' : 'on'}" ${attr('modeBottle')}>🍼 ${l.bottle}</button><button class="${breast ? 'on' : ''}" ${attr('modeBreast')}>🤱 ${l.breastfeeding}</button></div>`;
+      const breast = !!a.breast, solid = !!a.solid;
+      let body = `<div class="modes${started ? '' : ' three'}"><button class="${breast || solid ? '' : 'on'}" ${attr('modeBottle')}>🍼 ${l.bottle}</button><button class="${breast ? 'on' : ''}" ${attr('modeBreast')}>🤱 ${l.breastfeeding}</button>${started ? '' : `<button class="${solid ? 'on' : ''}" ${attr('modeSolid')}>🥄 ${l.solid}</button>`}</div>`;
       const milkInput = `<div class="milk-main"><input type="number" inputmode="decimal" id="milk" data-i="milk" value="${esc(a.milk || '')}" placeholder="0"><span class="unit-tag">${unit}</span></div>`;
-      if (breast) body += `<div class="breast-q">${l.whichSide}</div>
+      if (solid) body += `${recentHtml(a.items)}<div class="vol-lb">${l.ingredients}</div>${ingEditor('new', a.items || emptyItems())}`;
+      else if (breast) body += `<div class="breast-q">${l.whichSide}</div>
         <div class="sides"><button class="pick side${a.side === 'left' ? ' on-eat' : ''}" ${attr('breastSide', 'left')}>◀ ${l.left}</button><button class="pick side${a.side === 'right' ? ' on-eat' : ''}" ${attr('breastSide', 'right')}>${l.right} ▶</button></div>
         <div class="vol-lb">${l.breastVolume}</div>${milkInput}
         <div class="mbumps two">${bumps('bumpMilk', oz ? [-0.5, 0.5] : [-20, 20])}</div>`;
@@ -1241,6 +1417,7 @@
     }
     let ctas;
     if (cdLeft != null) ctas = `<button class="cta" ${attr('startTimer')}>${l.startNow}</button><button class="cta-ghost" ${attr('cancelCountdown')}>${l.cancel}</button>`;
+    else if (solidMode) ctas = `<button class="cta" ${attr('saveSolid')}>${l.solidSave}</button>`;
     else if (!started) {
       ctas = `<button class="cta" ${attr('startTimer')}>${l.start}</button>`;
       if (isSleep && state.useCountdown) ctas += `<button class="cta-ghost" aria-label="${esc(l.cdAria(state.cdMinutes))}" ${attr('startCountdown')}>⏳ ${l.countdown} · ${state.cdMinutes} min</button>`;
@@ -1255,8 +1432,8 @@
       <div class="timer-body${isSleep ? ' roomy' : ' eat'}">
         <div class="t-top">
         <div class="status dimmable" style="font-size:${isEat ? 12 : 14}px">${status}</div>
-        <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
-        ${started ? `<div class="from-time dimmable">${l.startedAt} ${esc(clockTime(a.startedAt))}</div>` : ''}
+        <div class="clock${cdLeft != null ? ' cd' : ''}" data-live="clock" style="font-size:${isEat ? 58 : 76}px">${solidMode ? clockTime(Date.now()) : clockLabel(cdLeft != null ? cdLeft : elapsedMs())}</div>
+        ${started ? `<div class="from-time dimmable">${l.startedAt} ${esc(clockTime(a.startedAt))}</div>` : solidMode ? `<div class="since">${l.solidTimeHint}</div>` : ''}
         ${sinceHtml}
         </div>
         <div class="t-mid">${mid}</div>
@@ -1290,7 +1467,7 @@
     if (m === 'sleep') { heading = l.hSleep; big = total.toFixed(1); unit = 'h'; sub = l.avgSleep((total / 7).toFixed(1)); }
     else if (m === 'eat') {
       heading = l.hMilk; big = String(Math.round(total)); unit = 'ml';
-      const feeds = state.archive.filter(e => e.type === 'eat' && e.timestamp >= days[0].start).length;
+      const feeds = state.archive.filter(e => e.type === 'eat' && !e.solid && e.timestamp >= days[0].start).length;
       sub = l.sumEat(feeds, Math.round(total / 7));
     } else { heading = l.hPoop; big = String(total); unit = ''; sub = l.avgPoop((total / 7).toFixed(1)); }
     return { bars, heading, big, unit, sub, empty: total === 0 };
@@ -1315,7 +1492,7 @@
 
   const eatHoursHtml = () => {
     const l = L(), from = windowStart3w();
-    const items = state.archive.filter(e => e.type === 'eat' && (e.trueStartedAt || e.timestamp) >= from);
+    const items = state.archive.filter(e => e.type === 'eat' && !e.solid && (e.trueStartedAt || e.timestamp) >= from);
     if (!items.length) return '';
     const grid = Array.from({ length: 24 }, () => ({ bottle: 0, breast: 0 }));
     items.forEach(e => { grid[new Date(e.trueStartedAt || e.timestamp).getHours()][e.breast ? 'breast' : 'bottle']++; });
@@ -1404,7 +1581,7 @@
 
   const dayHtml = () => {
     const m = state.metric, l = L(), s = state.selectedDay;
-    const items = sortDesc(state.archive.filter(e => e.type === m && e.timestamp >= s && e.timestamp < s + DAY));
+    const items = sortDesc(state.archive.filter(e => e.type === m && !e.solid && e.timestamp >= s && e.timestamp < s + DAY));
     const pos = (ts) => ((ts - s) / DAY) * 100;
     let total, strip = '', events;
     if (m === 'sleep') {
@@ -1446,9 +1623,10 @@
     const list = sortDesc(state.archive.filter(e => flt === 'all' || e.type === flt));
     if (asc) list.reverse();
     const rows = list.map(e => {
-      const icon = e.type === 'sleep' ? '🌙' : e.type === 'eat' ? (e.breast ? '🤱' : '🍼') : e.type === 'obs' ? obsEmoji(e.obs) : '💩';
+      const icon = e.type === 'sleep' ? '🌙' : e.type === 'eat' ? (e.breast ? '🤱' : e.solid ? '🥄' : '🍼') : e.type === 'obs' ? obsEmoji(e.obs) : '💩';
       let detail;
       if (e.type === 'sleep') detail = durLabel(e.duration) + (e.mode ? ` · ${sleepModeLabel(e.mode)}` : '');
+      else if (e.type === 'eat' && e.solid) detail = solidNames(e);
       else if (e.type === 'eat') detail = e.breast ? [sideLabel(e.side), e.milk ? `${e.milk}${e.unit || 'ml'}` : ''].filter(Boolean).join(' · ') : (e.milk ? `${e.milk}${e.unit || 'ml'}` : durLabel(e.duration));
       else if (e.type === 'obs') detail = obsLabel(e.obs);
       else detail = poopDesc(e) + (e.anomaly ? ` • ${l.anomLabel} : ${anomalyLabelFor(e)}` : '');
@@ -1696,7 +1874,19 @@
     if (fn) fn(el.dataset.v);
   });
   // role="button" elements (the bars card) answer to Enter and Space like a button
+  root.addEventListener('pointerdown', (ev) => { if (ev.target.closest('.ing-sugg')) ev.preventDefault(); });
+  root.addEventListener('focusout', (ev) => {
+    if (ev.target.dataset && ev.target.dataset.i === 'ing_name') { const box = ev.target.parentElement.querySelector('.ing-sugg'); setTimeout(() => { if (box) box.hidden = true; }, 150); }
+  });
   root.addEventListener('keydown', (ev) => {
+    const i = ev.target.dataset && ev.target.dataset.i;
+    if (ev.key === 'Enter' && (i === 'ing_name' || i === 'ing_qty')) {
+      ev.preventDefault();
+      const { scope, idx } = ev.target.dataset;
+      const next = document.getElementById(i === 'ing_name' ? `ingq_${scope}_${idx}` : `ingn_${scope}_${+idx + 1}`);
+      if (next) next.focus(); else ev.target.blur();
+      return;
+    }
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
   });
   root.addEventListener('change', (ev) => {
@@ -1705,7 +1895,7 @@
   });
   root.addEventListener('input', (ev) => {
     const k = ev.target.dataset && ev.target.dataset.i;
-    if (k && INPUTS[k]) INPUTS[k](ev.target.value, root);
+    if (k && INPUTS[k]) INPUTS[k](ev.target.value, root, ev.target);
     if (k === 'milk') save();
   });
 
