@@ -759,7 +759,17 @@
     const el = root.querySelector('[data-i="editEndDt"]'); if (el) el.value = d.endDt;
   };
   const INPUTS = {
-    milk: (v) => patchTimer({ milk: v }),
+    // typed volume: no redraw (a redraw would recreate the field and send the cursor back to the start);
+    // only the panel title and the highlighted preset are refreshed
+    milk: (v, root) => {
+      const t = state.timers.eat;
+      if (!t) return;
+      state.timers = { ...state.timers, eat: { ...t, milk: v } };
+      const lbl = root.querySelector('.tpanel.volume .tp-lbl');
+      if (lbl) lbl.innerHTML = volumeTitle(state.timers.eat);
+      const n = parseFloat(v);
+      root.querySelectorAll('.presets button').forEach(b => b.classList.toggle('on', parseFloat(b.dataset.v) === n));
+    },
     anomalyNote: (v) => { state.anomalyNote = v; },
     editDt: (v, root) => { patchDraft({ dt: v }); followEnd(root); },
     editEndDt: (v, root) => {
@@ -1170,6 +1180,10 @@
     return modal(body, 'm370');
   };
 
+  // the feed panel title is the volume itself (value + unit), not the word "Volume"
+  const volumeTitle = (a) => a.breast
+    ? `🤱 <span>${sideLabel(a.side) || L().whichSide}${parseFloat(a.milk) > 0 ? ` · ${esc(a.milk)} ${state.unit}` : ''}</span>`
+    : `🍼 <span class="vol-val">${esc(a.milk || '0')} ${state.unit}</span>`;
   const timerHtml = () => {
     const a = curT();
     if (!a) return '';
@@ -1222,11 +1236,7 @@
         <div class="vol-lb">${l.fullBottle}</div>
         <div class="presets bottle">${(oz ? [3, 4, 5, 6, 7, 8] : [100, 120, 140, 160, 180, 200]).map(presetBtn).join('')}</div>
         <div class="mbumps">${bumps('bumpMilk', oz ? [-1, -0.5, 0.5, 1] : [-10, -5, 5, 10])}</div>`;
-      // the panel title is the volume itself (value + unit), not the word "Volume"
-      const title = breast
-        ? `🤱 <span>${sideLabel(a.side) || l.whichSide}${parseFloat(a.milk) > 0 ? ` · ${esc(a.milk)} ${unit}` : ''}</span>`
-        : `🍼 <span class="vol-val">${esc(a.milk || '0')} ${unit}</span>`;
-      mid += panel('volume', 'volume', title, body);
+      mid += panel('volume', 'volume', volumeTitle(a), body);
       mid += `<button class="obs-quick dimmable" ${attr('logObs')}>📝 ${l.obsQuick}</button>`;
     }
     let ctas;
@@ -1611,10 +1621,10 @@
     syncHistory();
   }
 
-  // Dim everything except the running clock after a minute without touch while a feed timer runs.
+  // Dim everything except the running clock after 20 s without touch while a feed timer runs.
   // (A web page cannot lower the phone's real brightness, so the elements are darkened instead.)
-  // Also dims during the sleep countdown, but sooner (20 s) since nothing needs to be touched.
-  const IDLE_MS = 60000, IDLE_CD_MS = 20000;
+  // Also dims during the sleep countdown, sooner (8 s) since nothing needs to be touched.
+  const IDLE_MS = 20000, IDLE_CD_MS = 8000;
   let idleTimer = null;
   const inCountdown = () => state.view === 'sleep' && countdownLeft() != null;
   const dimWanted = () => (state.view === 'eat' && !!(state.timers.eat && state.timers.eat.running)) || inCountdown();
@@ -1688,6 +1698,10 @@
   // role="button" elements (the bars card) answer to Enter and Space like a button
   root.addEventListener('keydown', (ev) => {
     if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.matches('[role="button"][data-a]')) { ev.preventDefault(); ev.target.click(); }
+  });
+  root.addEventListener('change', (ev) => {
+    const k = ev.target.dataset && ev.target.dataset.i;
+    if (k && k.startsWith('num_')) ev.target.value = state[k.slice(4)];
   });
   root.addEventListener('input', (ev) => {
     const k = ev.target.dataset && ev.target.dataset.i;
